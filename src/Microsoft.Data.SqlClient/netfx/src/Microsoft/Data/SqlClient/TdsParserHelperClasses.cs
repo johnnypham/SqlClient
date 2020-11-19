@@ -11,6 +11,7 @@ using System.Globalization;
 using System.Security;
 using System.Text;
 using Microsoft.Data.Common;
+using Microsoft.Data.Encryption.Cryptography;
 using Microsoft.Data.SqlClient.Server;
 using Microsoft.Data.SqlTypes;
 
@@ -868,7 +869,7 @@ namespace Microsoft.Data.SqlClient
         /// <summary>
         /// Encryption Algorithm Handle.
         /// </summary>
-        private SqlClientEncryptionAlgorithm _sqlClientEncryptionAlgorithm;
+        private AeadAes256CbcHmac256EncryptionAlgorithm _sqlClientEncryptionAlgorithm;
 
         /// <summary>
         /// Sql Encryption Key Info.
@@ -943,7 +944,7 @@ namespace Microsoft.Data.SqlClient
         /// <summary>
         /// Return the cipher encyrption algorithm handle.
         /// </summary>
-        internal SqlClientEncryptionAlgorithm CipherAlgorithm
+        internal AeadAes256CbcHmac256EncryptionAlgorithm CipherAlgorithm
         {
             get
             {

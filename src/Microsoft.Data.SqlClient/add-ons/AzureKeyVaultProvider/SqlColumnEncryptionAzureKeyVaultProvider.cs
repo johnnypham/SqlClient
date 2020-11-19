@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using Microsoft.Azure.KeyVault;
 using Microsoft.Azure.KeyVault.WebKey;
 using Microsoft.Azure.KeyVault.Models;
+using Microsoft.Data.Encryption.Cryptography;
 
 namespace Microsoft.Data.SqlClient.AlwaysEncrypted.AzureKeyVaultProvider
 {
@@ -51,14 +52,14 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted.AzureKeyVaultProvider
     /// - [Example: Using Azure Key Vault with Always Encrypted with enclaves enabled](~/connect/ado-net/sql/azure-key-vault-enclave-example.md)
     /// ]]></format>
     /// </remarks>
-    public class SqlColumnEncryptionAzureKeyVaultProvider : SqlColumnEncryptionKeyStoreProvider
+    public class SqlColumnEncryptionAzureKeyVaultProvider : EncryptionKeyStoreProvider
     {
         #region Properties
 
         /// <summary>
         /// Column Encryption Key Store Provider string
         /// </summary>
-        public const string ProviderName = "AZURE_KEY_VAULT";
+        public override string ProviderName { get; } = "AZURE_KEY_VAULT";
 
         /// <summary>
         /// Algorithm version
@@ -138,7 +139,7 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted.AzureKeyVaultProvider
         /// <param name="masterKeyPath">Complete path of an asymmetric key. Path format is specific to a key store provider.</param>
         /// <param name="allowEnclaveComputations">Boolean indicating whether this key can be sent to trusted enclave</param>
         /// <returns>Encrypted column encryption key</returns>
-        public override byte[] SignColumnMasterKeyMetadata(string masterKeyPath, bool allowEnclaveComputations)
+        public override byte[] Sign(string masterKeyPath, bool allowEnclaveComputations)
         {
             var hash = ComputeMasterKeyMetadataHash(masterKeyPath, allowEnclaveComputations, isSystemOp: false);
             byte[] signedHash = AzureKeyVaultSignHashedData(hash, masterKeyPath);
@@ -152,7 +153,7 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted.AzureKeyVaultProvider
         /// <param name="allowEnclaveComputations">Boolean indicating whether this key can be sent to trusted enclave</param>
         /// <param name="signature">Signature for the master key metadata</param>
         /// <returns>Boolean indicating whether the master key metadata can be verified based on the provided signature</returns>
-        public override bool VerifyColumnMasterKeyMetadata(string masterKeyPath, bool allowEnclaveComputations, byte[] signature)
+        public override bool Verify(string masterKeyPath, bool allowEnclaveComputations, byte[] signature)
         {
             var hash = ComputeMasterKeyMetadataHash(masterKeyPath, allowEnclaveComputations, isSystemOp: true);
             return AzureKeyVaultVerifySignature(hash, signature, masterKeyPath);
@@ -163,10 +164,10 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted.AzureKeyVaultProvider
         /// and decrypts an encrypted CEK with RSA encryption algorithm.
         /// </summary>
         /// <param name="masterKeyPath">Complete path of an asymmetric key in AKV</param>
-        /// <param name="encryptionAlgorithm">Asymmetric Key Encryption Algorithm</param>
+        /// <param name="algorithm">Asymmetric Key Encryption Algorithm</param>
         /// <param name="encryptedColumnEncryptionKey">Encrypted Column Encryption Key</param>
         /// <returns>Plain text column encryption key</returns>
-        public override byte[] DecryptColumnEncryptionKey(string masterKeyPath, string encryptionAlgorithm, byte[] encryptedColumnEncryptionKey)
+        public override byte[] UnwrapKey(string masterKeyPath, KeyEncryptionKeyAlgorithm algorithm, byte[] encryptedColumnEncryptionKey)
         {
             // Validate the input parameters
             this.ValidateNonEmptyAKVPath(masterKeyPath, isSystemOp: true);
@@ -182,7 +183,7 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted.AzureKeyVaultProvider
             }
 
             // Validate encryptionAlgorithm
-            this.ValidateEncryptionAlgorithm(ref encryptionAlgorithm, isSystemOp: true);
+            this.ValidateEncryptionAlgorithm(ref algorithm, isSystemOp: true);
 
             // Validate whether the key is RSA one or not and then get the key size
             int keySizeInBytes = GetAKVKeySize(masterKeyPath);
@@ -268,7 +269,7 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted.AzureKeyVaultProvider
             }
 
             // Decrypt the CEK
-            return this.AzureKeyVaultUnWrap(masterKeyPath, encryptionAlgorithm, cipherText);
+            return this.AzureKeyVaultUnWrap(masterKeyPath, algorithm.ToString("F"), cipherText);
         }
 
         /// <summary>
@@ -276,10 +277,10 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted.AzureKeyVaultProvider
         /// and encrypts CEK with RSA encryption algorithm.
         /// </summary>
         /// <param name="masterKeyPath">Complete path of an asymmetric key in AKV</param>
-        /// <param name="encryptionAlgorithm">Asymmetric Key Encryption Algorithm</param>
+        /// <param name="algorithm">Asymmetric Key Encryption Algorithm</param>
         /// <param name="columnEncryptionKey">Plain text column encryption key</param>
         /// <returns>Encrypted column encryption key</returns>
-        public override byte[] EncryptColumnEncryptionKey(string masterKeyPath, string encryptionAlgorithm, byte[] columnEncryptionKey)
+        public override byte[] WrapKey(string masterKeyPath, KeyEncryptionKeyAlgorithm algorithm, byte[] columnEncryptionKey)
         {
             // Validate the input parameters
             this.ValidateNonEmptyAKVPath(masterKeyPath, isSystemOp: true);
@@ -295,7 +296,7 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted.AzureKeyVaultProvider
             }
 
             // Validate encryptionAlgorithm
-            this.ValidateEncryptionAlgorithm(ref encryptionAlgorithm, isSystemOp: false);
+            this.ValidateEncryptionAlgorithm(ref algorithm, isSystemOp: false);
 
             // Validate whether the key is RSA one or not and then get the key size
             int keySizeInBytes = GetAKVKeySize(masterKeyPath);
@@ -312,7 +313,7 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted.AzureKeyVaultProvider
             byte[] keyPathLength = BitConverter.GetBytes((Int16)masterKeyPathBytes.Length);
 
             // Encrypt the plain text
-            byte[] cipherText = this.AzureKeyVaultWrap(masterKeyPath, encryptionAlgorithm, columnEncryptionKey);
+            byte[] cipherText = this.AzureKeyVaultWrap(masterKeyPath, algorithm.ToString("F"), columnEncryptionKey);
             byte[] cipherTextLength = BitConverter.GetBytes((Int16)cipherText.Length);
 
             if (cipherText.Length != keySizeInBytes)
@@ -386,12 +387,13 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted.AzureKeyVaultProvider
         /// This function validates that the encryption algorithm is RSA_OAEP and if it is not,
         /// then throws an exception
         /// </summary>
-        /// <param name="encryptionAlgorithm">Asymmetric key encryption algorithm</param>
+        /// <param name="algorithm">Asymmetric key encryption algorithm</param>
         /// <param name="isSystemOp">is the operation a system operation</param>
-        private void ValidateEncryptionAlgorithm(ref string encryptionAlgorithm, bool isSystemOp)
+        private void ValidateEncryptionAlgorithm(ref KeyEncryptionKeyAlgorithm algorithm, bool isSystemOp)
         {
+            string algorithmString = algorithm.ToString("F");
             // This validates that the encryption algorithm is RSA_OAEP
-            if (null == encryptionAlgorithm)
+            if (null == algorithmString)
             {
                 if (isSystemOp)
                 {
@@ -404,15 +406,15 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted.AzureKeyVaultProvider
             }
 
             // Transform to standard format (dash instead of underscore) to support both "RSA_OAEP" and "RSA-OAEP"
-            if (encryptionAlgorithm.Equals("RSA_OAEP", StringComparison.OrdinalIgnoreCase))
+            if (algorithmString.Equals("RSA_OAEP", StringComparison.OrdinalIgnoreCase))
             {
-                encryptionAlgorithm = JsonWebKeyEncryptionAlgorithm.RSAOAEP;
+                algorithmString = JsonWebKeyEncryptionAlgorithm.RSAOAEP;
             }
 
-            if (String.Equals(encryptionAlgorithm, JsonWebKeyEncryptionAlgorithm.RSAOAEP, StringComparison.OrdinalIgnoreCase) != true)
+            if (String.Equals(algorithmString, JsonWebKeyEncryptionAlgorithm.RSAOAEP, StringComparison.OrdinalIgnoreCase) != true)
             {
                 throw new ArgumentException(String.Format(CultureInfo.InvariantCulture, Strings.InvalidKeyAlgorithm,
-                                                            encryptionAlgorithm, "RSA_OAEP' or 'RSA-OAEP"), // For supporting both algorithm formats.
+                                                            algorithmString, "RSA_OAEP' or 'RSA-OAEP"), // For supporting both algorithm formats.
                                             Constants.AeParamEncryptionAlgorithm);
             }
         }

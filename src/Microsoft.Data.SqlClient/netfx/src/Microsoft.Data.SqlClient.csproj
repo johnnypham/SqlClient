@@ -199,12 +199,6 @@
     <Compile Include="..\..\src\Microsoft\Data\SqlClient\SqlAuthenticationToken.cs">
       <Link>Microsoft\Data\SqlClient\SqlAuthenticationToken.cs</Link>
     </Compile>
-    <Compile Include="..\..\src\Microsoft\Data\SqlClient\SqlAeadAes256CbcHmac256Algorithm.cs">
-      <Link>Microsoft\Data\SqlClient\SqlAeadAes256CbcHmac256Algorithm.cs</Link>
-    </Compile>
-    <Compile Include="..\..\src\Microsoft\Data\SqlClient\SqlAeadAes256CbcHmac256EncryptionKey.cs">
-      <Link>Microsoft\Data\SqlClient\SqlAeadAes256CbcHmac256EncryptionKey.cs</Link>
-    </Compile>
     <Compile Include="..\..\src\Microsoft\Data\SqlClient\SqlAeadAes256CbcHmac256Factory.cs">
       <Link>Microsoft\Data\SqlClient\SqlAeadAes256CbcHmac256Factory.cs</Link>
     </Compile>
@@ -226,8 +220,8 @@
     <Compile Include="..\..\src\Microsoft\Data\SqlClient\SqlBulkCopyColumnOrderHintCollection.cs">
       <Link>Microsoft\Data\SqlClient\SqlBulkCopyColumnOrderHintCollection.cs</Link>
     </Compile>
-    <Compile Include="..\..\src\Microsoft\Data\SqlClient\SqlClientEncryptionAlgorithm.cs">
-      <Link>Microsoft\Data\SqlClient\SqlClientEncryptionAlgorithm.cs</Link>
+    <Compile Include="..\..\src\Microsoft\Data\SqlClient\SqlSecurityUtility.cs">
+      <Link>Microsoft\Data\SqlClient\SqlSecurityUtility.cs</Link>
     </Compile>
     <Compile Include="..\..\src\Microsoft\Data\SqlClient\SqlClientEncryptionAlgorithmFactory.cs">
       <Link>Microsoft\Data\SqlClient\SqlClientEncryptionAlgorithmFactory.cs</Link>
@@ -237,9 +231,6 @@
     </Compile>
     <Compile Include="..\..\src\Microsoft\Data\SqlClient\SqlClientEncryptionType.cs">
       <Link>Microsoft\Data\SqlClient\SqlClientEncryptionType.cs</Link>
-    </Compile>
-    <Compile Include="..\..\src\Microsoft\Data\SqlClient\SqlClientSymmetricKey.cs">
-      <Link>Microsoft\Data\SqlClient\SqlClientSymmetricKey.cs</Link>
     </Compile>
     <Compile Include="..\..\src\Microsoft\Data\SqlClient\SqlColumnEncryptionKeyStoreProvider.cs">
       <Link>Microsoft\Data\SqlClient\SqlColumnEncryptionKeyStoreProvider.cs</Link>
@@ -271,9 +262,6 @@
     <Compile Include="..\..\src\Microsoft\Data\SqlClient\SqlRowUpdatingEventHandler.cs">
       <Link>Microsoft\Data\SqlClient\SqlRowUpdatingEventHandler.cs</Link>
     </Compile>
-    <Compile Include="..\..\src\Microsoft\Data\SqlClient\SqlSymmetricKeyCache.cs">
-      <Link>Microsoft\Data\SqlClient\SqlSymmetricKeyCache.cs</Link>
-    </Compile>
     <Compile Include="..\..\src\Microsoft\Data\SqlTypes\SqlTypeWorkarounds.cs">
       <Link>Microsoft\Data\SqlTypes\SqlTypeWorkarounds.cs</Link>
     </Compile>
@@ -298,9 +286,6 @@
     <Compile Include="..\..\src\Microsoft\Data\SqlClient\EnclaveSessionCache.cs">
       <Link>Microsoft\Data\SqlClient\EnclaveSessionCache.cs</Link>
     </Compile>
-    <Compile Include="..\..\src\Microsoft\Data\SqlClient\SignatureVerificationCache.cs">
-      <Link>Microsoft\Data\SqlClient\SignatureVerificationCache.cs</Link>
-    </Compile>
     <Compile Include="..\..\src\Microsoft\Data\SqlClient\TdsValueSetter.cs">
       <Link>Microsoft\Data\SqlClient\TdsValueSetter.cs</Link>
     </Compile>
@@ -313,6 +298,9 @@
     <Compile Include="..\..\src\Microsoft\Data\SqlClient\Server\SmiRecordBuffer.cs">
       <Link>Microsoft\Data\SqlClient\Server\SmiRecordBuffer.cs</Link>
     </Compile>
+		<Compile Include="..\..\src\Microsoft\Data\SqlClient\SqlColumnEncryptionKeyStoreProviderAdapter.cs">
+			<Link>Microsoft\Data\SqlClient\SqlColumnEncryptionKeyStoreProviderAdapter.cs</Link>
+		</Compile>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Microsoft\Data\Interop\SNINativeManagedWrapperX64.cs" />
@@ -352,16 +340,10 @@
     <Compile Include="Microsoft\Data\SqlClient\SqlColumnEncryptionCngProvider.cs" />
     <Compile Include="Microsoft\Data\SqlClient\SqlColumnEncryptionCspProvider.cs" />
     <Compile Include="Microsoft\Data\SqlClient\SqlColumnEncryptionEnclaveProvider.cs" />
-    <Compile Include="Microsoft\Data\SqlClient\SqlCommand.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Microsoft\Data\SqlClient\SqlCommandBuilder.cs">
-      <SubType>Component</SubType>
-    </Compile>
+    <Compile Include="Microsoft\Data\SqlClient\SqlCommand.cs" />
+    <Compile Include="Microsoft\Data\SqlClient\SqlCommandBuilder.cs" />
     <Compile Include="Microsoft\Data\SqlClient\SqlCommandSet.cs" />
-    <Compile Include="Microsoft\Data\SqlClient\SqlConnection.cs">
-      <SubType>Component</SubType>
-    </Compile>
+    <Compile Include="Microsoft\Data\SqlClient\SqlConnection.cs" />
     <Compile Include="Microsoft\Data\SqlClient\SqlConnectionFactory.cs" />
     <Compile Include="Microsoft\Data\SqlClient\SqlConnectionPoolGroupProviderInfo.cs" />
     <Compile Include="Microsoft\Data\SqlClient\SqlConnectionPoolKey.cs" />
@@ -369,9 +351,7 @@
     <Compile Include="Microsoft\Data\SqlClient\SqlConnectionStringBuilder.cs" />
     <Compile Include="Microsoft\Data\SqlClient\SqlConnectionTimeoutErrorInternal.cs" />
     <Compile Include="Microsoft\Data\SqlClient\SqlCredential.cs" />
-    <Compile Include="Microsoft\Data\SqlClient\SqlDataAdapter.cs">
-      <SubType>Component</SubType>
-    </Compile>
+    <Compile Include="Microsoft\Data\SqlClient\SqlDataAdapter.cs" />
     <Compile Include="Microsoft\Data\SqlClient\SqlDataReader.cs" />
     <Compile Include="Microsoft\Data\SqlClient\SqlDataReaderSmi.cs" />
     <Compile Include="Microsoft\Data\SqlClient\SqlDelegatedTransaction.cs" />
@@ -395,7 +375,6 @@
     <Compile Include="Microsoft\Data\SqlClient\SqlParameterCollection.cs" />
     <Compile Include="Microsoft\Data\SqlClient\SqlQueryMetadataCache.cs" />
     <Compile Include="Microsoft\Data\SqlClient\SqlReferenceCollection.cs" />
-    <Compile Include="Microsoft\Data\SqlClient\SqlSecurityUtility.cs" />
     <Compile Include="Microsoft\Data\SqlClient\SqlSequentialStream.cs" />
     <Compile Include="Microsoft\Data\SqlClient\SqlSequentialStreamSmi.cs" />
     <Compile Include="Microsoft\Data\SqlClient\SqlSequentialTextReader.cs" />
@@ -437,9 +416,7 @@
     <Compile Include="Microsoft\Data\ProviderBase\DbBuffer.cs" />
     <Compile Include="Microsoft\Data\ProviderBase\DbConnectionClosed.cs" />
     <Compile Include="Microsoft\Data\ProviderBase\DbConnectionFactory.cs" />
-    <Compile Include="Microsoft\Data\ProviderBase\SqlConnectionHelper.cs">
-      <SubType>Component</SubType>
-    </Compile>
+    <Compile Include="Microsoft\Data\ProviderBase\SqlConnectionHelper.cs" />
     <Compile Include="Microsoft\Data\ProviderBase\DbConnectionInternal.cs" />
     <Compile Include="Microsoft\Data\ProviderBase\DbConnectionPool.cs" />
     <Compile Include="Microsoft\Data\ProviderBase\DbConnectionPoolGroup.cs" />
@@ -480,10 +457,10 @@
   </ItemGroup>
   <!-- Resources  -->
   <ItemGroup>
-    <Compile Include="Resources\$(ResxFileName).Designer.cs">
+    <Compile Include="Resources\Strings.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
-      <DependentUpon>$(ResxFileName).resx</DependentUpon>
+      <DependentUpon>Strings.resx</DependentUpon>
     </Compile>
     <Compile Include="Resources\$(ResxFileName)Helper.cs" />
     <EmbeddedResource Include="Resources\$(ResxFileName).resx">
@@ -535,6 +512,9 @@
     <PackageReference Include="System.IO">
       <Version>$(SystemIOVersion)</Version>
     </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(EncryptionSDK)Cryptography\Cryptography.csproj" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(NetFxSource)tools\targets\GenerateResourceStringsSource.targets" />

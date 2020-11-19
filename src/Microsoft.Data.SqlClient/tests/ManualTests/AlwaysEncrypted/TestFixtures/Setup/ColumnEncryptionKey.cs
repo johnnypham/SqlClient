@@ -4,17 +4,18 @@
 
 using System;
 using System.Security.Cryptography;
+using Microsoft.Data.Encryption.Cryptography;
 
 namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted.Setup
 {
     public class ColumnEncryptionKey : DbObject
     {
-        public string Algorithm { get; set; } = "RSA_OAEP";
+        public KeyEncryptionKeyAlgorithm Algorithm { get; set; } = KeyEncryptionKeyAlgorithm.RSA_OAEP;
         public string EncryptedValue { get; }
         public ColumnMasterKey ColumnMasterKey { get; }
         public static int KeySizeInBytes { get; } = 32;
 
-        public ColumnEncryptionKey(string name, ColumnMasterKey columnMasterKey, SqlColumnEncryptionKeyStoreProvider columnEncryptionProvider) : base(name)
+        public ColumnEncryptionKey(string name, ColumnMasterKey columnMasterKey, EncryptionKeyStoreProvider columnEncryptionProvider) : base(name)
         {
             ColumnMasterKey = columnMasterKey;
             byte[] plainTextColumnEncryptionKey = GenerateRandomBytes(KeySizeInBytes);
@@ -70,10 +71,10 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted.Setup
         /// </summary>
         /// <param name="key"></param>
         /// <returns></returns>
-        private static byte[] CreateEncryptedCek(string masterKeyPath, string encryptionKeyAlgorithm, byte[] key, SqlColumnEncryptionKeyStoreProvider columnEncryptionProvider)
+        private static byte[] CreateEncryptedCek(string masterKeyPath, KeyEncryptionKeyAlgorithm encryptionKeyAlgorithm, byte[] key, EncryptionKeyStoreProvider columnEncryptionProvider)
         {
             byte[] encryptedCek = null;
-            encryptedCek = columnEncryptionProvider.EncryptColumnEncryptionKey(masterKeyPath, encryptionKeyAlgorithm, key);
+            encryptedCek = columnEncryptionProvider.WrapKey(masterKeyPath, encryptionKeyAlgorithm, key);
 
             return encryptedCek;
         }

@@ -15,6 +15,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
+using Microsoft.Data.Encryption.Cryptography;
 using Microsoft.Data.Common;
 
 namespace Microsoft.Data.SqlClient
@@ -1465,10 +1466,10 @@ namespace Microsoft.Data.SqlClient
             return ADP.Argument(System.StringsHelper.GetString(Strings.TCE_InvalidKeySize, algorithmName, actualKeylength, expectedLength), TdsEnums.TCE_PARAM_ENCRYPTIONKEY);
         }
 
-        internal static Exception InvalidEncryptionType(string algorithmName, SqlClientEncryptionType encryptionType, params SqlClientEncryptionType[] validEncryptionTypes)
+        internal static Exception InvalidEncryptionType(string algorithmName, EncryptionType encryptionType, params EncryptionType[] validEncryptionTypes)
         {
             const string valueSeparator = @", ";
-            return ADP.Argument(System.StringsHelper.GetString(Strings.TCE_InvalidEncryptionType, algorithmName, encryptionType.ToString(), string.Join(valueSeparator, validEncryptionTypes.Select((validEncryptionType => @"'" + validEncryptionType + @"'")))), TdsEnums.TCE_PARAM_ENCRYPTIONTYPE);
+            return ADP.Argument(System.StringsHelper.GetString(Strings.TCE_InvalidEncryptionType, algorithmName, encryptionType.ToString("F"), string.Join(valueSeparator, validEncryptionTypes.Select((validEncryptionType => @"'" + validEncryptionType + @"'")))), TdsEnums.TCE_PARAM_ENCRYPTIONTYPE);
         }
 
         internal static Exception InvalidCipherTextSize(int actualSize, int minimumSize)
@@ -1754,7 +1755,7 @@ namespace Microsoft.Data.SqlClient
         internal static Exception KeyDecryptionFailed(string providerName, string keyHex, Exception e)
         {
 
-            if (providerName.Equals(SqlColumnEncryptionCertificateStoreProvider.ProviderName))
+            if (providerName.Equals(@"MSSQL_CERTIFICATE_STORE"))
             {
                 return GetExceptionArray(null, System.StringsHelper.GetString(Strings.TCE_KeyDecryptionFailedCertStore, providerName, keyHex), e);
             }
@@ -1851,6 +1852,11 @@ namespace Microsoft.Data.SqlClient
             return ADP.ArgumentNull(TdsEnums.TCE_PARAM_CLIENT_KEYSTORE_PROVIDERS, System.StringsHelper.GetString(Strings.TCE_NullCustomKeyStoreProviderDictionary));
         }
 
+        internal static Exception NullCustomKeyStoreProviderList()
+        {
+            return ADP.ArgumentNull(TdsEnums.TCE_PARAM_CLIENT_KEYSTORE_PROVIDERS, System.StringsHelper.GetString(Strings.TCE_NullCustomKeyStoreProviderList));
+        }
+
         internal static Exception InvalidCustomKeyStoreProviderName(string providerName, string prefix)
         {
             return ADP.Argument(System.StringsHelper.GetString(Strings.TCE_InvalidCustomKeyStoreProviderName, providerName, prefix), TdsEnums.TCE_PARAM_CLIENT_KEYSTORE_PROVIDERS);
@@ -1864,6 +1870,11 @@ namespace Microsoft.Data.SqlClient
         internal static Exception EmptyProviderName()
         {
             return ADP.ArgumentNull(TdsEnums.TCE_PARAM_CLIENT_KEYSTORE_PROVIDERS, System.StringsHelper.GetString(Strings.TCE_EmptyProviderName));
+        }
+
+        internal static Exception RegisterUserKeyStoreProviderWithoutAuthenticating()
+        {
+            return ADP.InvalidOperation(StringsHelper.GetString(Strings.TCE_RegisterUserKeyStoreProviderWithoutAuthenticating));
         }
         #endregion Always Encrypted - Extensibility related error messages
 

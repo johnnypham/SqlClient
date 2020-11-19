@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using Microsoft.Data.Encryption.Cryptography;
 
 namespace Microsoft.Data.SqlClient
 {
@@ -19,12 +20,12 @@ namespace Microsoft.Data.SqlClient
     /// ciphertext: Encrypted column encryption key
     /// signature: Signature of the entire byte array. Signature is validated before decrypting the column encryption key.
     /// </summary>
-    public class SqlColumnEncryptionCspProvider : SqlColumnEncryptionKeyStoreProvider
+    public class SqlColumnEncryptionCspProvider : EncryptionKeyStoreProvider
     {
         /// <summary>
         /// Name for the CSP key store provider.
         /// </summary>
-        public const string ProviderName = @"MSSQL_CSP_PROVIDER";
+        public override string ProviderName { get; } = @"MSSQL_CSP_PROVIDER";
 
         /// <summary>
         /// This function uses the asymmetric key specified by the key path
@@ -34,7 +35,7 @@ namespace Microsoft.Data.SqlClient
         /// <param name="encryptionAlgorithm">Asymmetric Key Encryption Algorithm</param>
         /// <param name="encryptedColumnEncryptionKey">Encrypted Column Encryption Key</param>
         /// <returns>Plain text column encryption key</returns>
-        public override byte[] DecryptColumnEncryptionKey(string masterKeyPath, string encryptionAlgorithm,
+        public override byte[] UnwrapKey(string masterKeyPath, KeyEncryptionKeyAlgorithm encryptionAlgorithm,
             byte[] encryptedColumnEncryptionKey)
         {
             throw new PlatformNotSupportedException();
@@ -48,7 +49,7 @@ namespace Microsoft.Data.SqlClient
         /// <param name="encryptionAlgorithm">Asymmetric Key Encryption Algorithm</param>
         /// <param name="columnEncryptionKey">Plain text column encryption key</param>
         /// <returns>Encrypted column encryption key</returns>
-        public override byte[] EncryptColumnEncryptionKey(string masterKeyPath, string encryptionAlgorithm,
+        public override byte[] WrapKey(string masterKeyPath, KeyEncryptionKeyAlgorithm encryptionAlgorithm,
             byte[] columnEncryptionKey)
         {
             throw new PlatformNotSupportedException();
@@ -60,7 +61,7 @@ namespace Microsoft.Data.SqlClient
         /// <param name="masterKeyPath">Complete path of an asymmetric key. Path format is specific to a key store provider.</param>
         /// <param name="allowEnclaveComputations">Boolean indicating whether this key can be sent to trusted enclave</param>
         /// <returns>Encrypted column encryption key</returns>
-        public override byte[] SignColumnMasterKeyMetadata(string masterKeyPath, bool allowEnclaveComputations)
+        public override byte[] Sign(string masterKeyPath, bool allowEnclaveComputations)
         {
             throw new PlatformNotSupportedException();
         }
@@ -72,7 +73,7 @@ namespace Microsoft.Data.SqlClient
         /// <param name="allowEnclaveComputations">Boolean indicating whether this key can be sent to trusted enclave</param>
         /// <param name="signature">Signature for the master key metadata</param>
         /// <returns>Boolean indicating whether the master key metadata can be verified based on the provided signature</returns>
-        public override bool VerifyColumnMasterKeyMetadata(string masterKeyPath, bool allowEnclaveComputations, byte[] signature)
+        public override bool Verify(string masterKeyPath, bool allowEnclaveComputations, byte[] signature)
         {
             throw new PlatformNotSupportedException();
         }

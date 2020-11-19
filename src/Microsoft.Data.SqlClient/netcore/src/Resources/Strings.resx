@@ -1932,4 +1932,7 @@
   <data name="Azure_RetryFailure" xml:space="preserve">
     <value>Failed after 5 retries.</value>
   </data>
+  <data name="TCE_NullCustomKeyStoreProviderList" xml:space="preserve">
+    <value>Column encryption key store provider list cannot be null. Expecting a non-null value.</value>
+  </data>
 </root>

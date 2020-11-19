@@ -3,16 +3,17 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using Microsoft.Data.Encryption.Cryptography;
 
 namespace Microsoft.Data.SqlClient
 {
     /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient/SqlColumnEncryptionCertificateStoreProvider.xml' path='docs/members[@name="SqlColumnEncryptionCertificateStoreProvider"]/SqlColumnEncryptionCertificateStoreProvider/*' />
-    public class SqlColumnEncryptionCertificateStoreProvider : SqlColumnEncryptionKeyStoreProvider
+    public class SqlColumnEncryptionCertificateStoreProvider : EncryptionKeyStoreProvider
     {
         /// <summary>
         /// Name for the certificate key store provider.
         /// </summary>
-        public const string ProviderName = @"MSSQL_CERTIFICATE_STORE";
+        public override string ProviderName { get; } = @"MSSQL_CERTIFICATE_STORE";
 
         /// <summary>
         /// This function uses a certificate specified by the key path
@@ -22,7 +23,7 @@ namespace Microsoft.Data.SqlClient
         /// <param name="encryptionAlgorithm">Asymmetric Key Encryption Algorithm</param>
         /// <param name="encryptedColumnEncryptionKey">Encrypted Column Encryption Key</param>
         /// <returns>Plain text column encryption key</returns>
-        public override byte[] DecryptColumnEncryptionKey(string masterKeyPath, string encryptionAlgorithm, byte[] encryptedColumnEncryptionKey)
+        public override byte[] UnwrapKey(string masterKeyPath, KeyEncryptionKeyAlgorithm encryptionAlgorithm, byte[] encryptedColumnEncryptionKey)
         {
             throw new PlatformNotSupportedException();
         }
@@ -35,7 +36,7 @@ namespace Microsoft.Data.SqlClient
         /// <param name="encryptionAlgorithm">Asymmetric Key Encryption Algorithm</param>
         /// <param name="columnEncryptionKey">Plain text column encryption key</param>
         /// <returns>Encrypted column encryption key</returns>
-        public override byte[] EncryptColumnEncryptionKey(string masterKeyPath, string encryptionAlgorithm, byte[] columnEncryptionKey)
+        public override byte[] WrapKey(string masterKeyPath, KeyEncryptionKeyAlgorithm encryptionAlgorithm, byte[] columnEncryptionKey)
         {
             throw new PlatformNotSupportedException();
         }
@@ -47,7 +48,7 @@ namespace Microsoft.Data.SqlClient
         /// <param name="masterKeyPath">Complete path of an asymmetric key. Path format is specific to a key store provider.</param>
         /// <param name="allowEnclaveComputations">Boolean indicating whether this key can be sent to trusted enclave</param>
         /// <returns>Signature for master key metadata</returns>
-        public override byte[] SignColumnMasterKeyMetadata(string masterKeyPath, bool allowEnclaveComputations)
+        public override byte[] Sign(string masterKeyPath, bool allowEnclaveComputations)
         {
             throw new PlatformNotSupportedException();
         }
@@ -60,7 +61,7 @@ namespace Microsoft.Data.SqlClient
         /// <param name="allowEnclaveComputations">Boolean indicating whether this key can be sent to trusted enclave</param>
         /// <param name="signature">Signature for the master key metadata</param>
         /// <returns>Boolean indicating whether the master key metadata can be verified based on the provided signature</returns>
-        public override bool VerifyColumnMasterKeyMetadata(string masterKeyPath, bool allowEnclaveComputations, byte[] signature)
+        public override bool Verify(string masterKeyPath, bool allowEnclaveComputations, byte[] signature)
         {
             throw new PlatformNotSupportedException();
         }

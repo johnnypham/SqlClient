@@ -16,6 +16,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
+using Microsoft.Data.Encryption.Cryptography;
 using Microsoft.Data.Common;
 using Microsoft.Data.Sql;
 using Microsoft.Data.SqlClient.Server;
@@ -3940,14 +3941,6 @@ namespace Microsoft.Data.SqlClient
                     string providerName = ds.GetString((int)DescribeParameterEncryptionResultSet1.ProviderName);
 
                     string keyPath = ds.GetString((int)DescribeParameterEncryptionResultSet1.KeyPath);
-                    cipherInfoEntry.Add(encryptedKey: encryptedKey,
-                                        databaseId: ds.GetInt32((int)DescribeParameterEncryptionResultSet1.DbId),
-                                        cekId: ds.GetInt32((int)DescribeParameterEncryptionResultSet1.KeyId),
-                                        cekVersion: ds.GetInt32((int)DescribeParameterEncryptionResultSet1.KeyVersion),
-                                        cekMdVersion: keyMdVersion,
-                                        keyPath: keyPath,
-                                        keyStoreName: providerName,
-                                        algorithmName: ds.GetString((int)DescribeParameterEncryptionResultSet1.KeyEncryptionAlgorithm));
 
                     bool isRequestedByEnclave = false;
 
@@ -3963,6 +3956,15 @@ namespace Microsoft.Data.SqlClient
                         enclaveMetadataExists = false;
                     }
 
+                    cipherInfoEntry.Add(encryptedKey: encryptedKey,
+                                        databaseId: ds.GetInt32((int)DescribeParameterEncryptionResultSet1.DbId),
+                                        cekId: ds.GetInt32((int)DescribeParameterEncryptionResultSet1.KeyId),
+                                        cekVersion: ds.GetInt32((int)DescribeParameterEncryptionResultSet1.KeyVersion),
+                                        cekMdVersion: keyMdVersion,
+                                        keyPath: keyPath,
+                                        keyStoreName: providerName,
+                                        algorithmName: ds.GetString((int)DescribeParameterEncryptionResultSet1.KeyEncryptionAlgorithm)
+                          /*              isRequestedByEnclave: isRequestedByEnclave*/);
 
                     if (isRequestedByEnclave)
                     {
@@ -3982,8 +3984,7 @@ namespace Microsoft.Data.SqlClient
                         }
 
                         string servername = this._activeConnection.DataSource;
-                        SqlSecurityUtility.VerifyColumnMasterKeySignature(providerName, keyPath, servername, isRequestedByEnclave, keySignature);
-
+                        SqlSecurityUtility.VerifyColumnMasterKeySignature(providerName, keyPath, servername, isRequestedByEnclave, keySignature, _activeConnection);
                         int requestedKey = currentOrdinal;
                         SqlTceCipherInfoEntry cipherInfo;
 
@@ -4064,7 +4065,7 @@ namespace Microsoft.Data.SqlClient
                                 recievedMetadataCount += 1;
                                 // Found the param, setup the encryption info.
                                 byte columnEncryptionType = ds.GetByte((int)DescribeParameterEncryptionResultSet2.ColumnEncryptionType);
-                                if ((byte)SqlClientEncryptionType.PlainText != columnEncryptionType)
+                                if ((byte)EncryptionType.Plaintext != columnEncryptionType)
                                 {
                                     byte cipherAlgorithmId = ds.GetByte((int)DescribeParameterEncryptionResultSet2.ColumnEncryptionAlgorithm);
                                     int columnEncryptionKeyOrdinal = ds.GetInt32((int)DescribeParameterEncryptionResultSet2.ColumnEncryptionKeyOrdinal);
@@ -4085,7 +4086,7 @@ namespace Microsoft.Data.SqlClient
 
                                     // Decrypt the symmetric key.(This will also validate and throw if needed).
                                     Debug.Assert(_activeConnection != null, @"_activeConnection should not be null");
-                                    SqlSecurityUtility.DecryptSymmetricKey(sqlParameter.CipherMetadata, this._activeConnection.DataSource);
+                                    SqlSecurityUtility.DecryptSymmetricKey(sqlParameter.CipherMetadata, this._activeConnection.DataSource, _activeConnection);
 
                                     // This is effective only for BatchRPCMode even though we set it for non-BatchRPCMode also,
                                     // since for non-BatchRPCMode mode, paramoptions gets thrown away and reconstructed in BuildExecuteSql.
@@ -4246,7 +4247,7 @@ namespace Microsoft.Data.SqlClient
 
                 try
                 {
-                    return RunExecuteReaderTdsWithTransparentParameterEncryption(cmdBehavior, runBehavior, returnStream, isAsync, timeout, out task, asyncWrite && isAsync, inRetry: inRetry, ds: null,
+                   return RunExecuteReaderTdsWithTransparentParameterEncryption(cmdBehavior, runBehavior, returnStream, isAsync, timeout, out task, asyncWrite && isAsync, inRetry: inRetry, ds: null,
                         describeParameterEncryptionRequest: false, describeParameterEncryptionTask: returnTask);
                 }
 
@@ -4415,8 +4416,13 @@ namespace Microsoft.Data.SqlClient
             try
             {
                 EnclaveSessionParameters enclaveSessionParameters = new EnclaveSessionParameters(this._activeConnection.DataSource, this._activeConnection.EnclaveAttestationUrl, this._activeConnection.Database);
-                this.enclavePackage = EnclaveDelegate.Instance.GenerateEnclavePackage(attestationProtocol, keysToBeSentToEnclave,
-                    this.CommandText, enclaveType, enclaveSessionParameters);
+                this.enclavePackage = EnclaveDelegate.Instance.GenerateEnclavePackage(
+                    attestationProtocol, 
+                    keysToBeSentToEnclave,
+                    this.CommandText, 
+                    enclaveType, 
+                    enclaveSessionParameters, 
+                    _activeConnection);
             }
             catch (EnclaveDelegate.RetryableEnclaveQueryExecutionException)
             {
@@ -5169,7 +5175,7 @@ namespace Microsoft.Data.SqlClient
 
                             // Get the key information from the parameter and decrypt the value.
                             rec.cipherMD.EncryptionInfo = thisParam.CipherMetadata.EncryptionInfo;
-                            byte[] unencryptedBytes = SqlSecurityUtility.DecryptWithKey(rec.value.ByteArray, rec.cipherMD, _activeConnection.DataSource);
+                            byte[] unencryptedBytes = SqlSecurityUtility.DecryptWithKey(rec.value.ByteArray, rec.cipherMD, _activeConnection.DataSource, _activeConnection);
 
                             if (unencryptedBytes != null)
                             {

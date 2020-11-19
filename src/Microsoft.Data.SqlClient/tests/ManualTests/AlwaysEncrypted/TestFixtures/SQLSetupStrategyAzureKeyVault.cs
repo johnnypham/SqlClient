@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Data.Encryption.Cryptography;
 using Microsoft.Data.SqlClient.AlwaysEncrypted.AzureKeyVaultProvider;
 using Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted.Setup;
 
@@ -22,9 +23,13 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted
 
             if (!isAKVProviderRegistered)
             {
-                Dictionary<string, SqlColumnEncryptionKeyStoreProvider> customAkvKeyStoreProviders = new Dictionary<string, SqlColumnEncryptionKeyStoreProvider>(capacity: 1, comparer: StringComparer.OrdinalIgnoreCase)
+                // this dummyprovider is required in ApiShould.TestCustomKeyStoreProviderRegistration()
+                DummyEncryptionKeyStoreProvider dummyProvider = new DummyEncryptionKeyStoreProvider();
+
+                Dictionary<string, EncryptionKeyStoreProvider> customAkvKeyStoreProviders = new Dictionary<string, EncryptionKeyStoreProvider>(capacity: 1, comparer: StringComparer.OrdinalIgnoreCase)
                 {
-                    {SqlColumnEncryptionAzureKeyVaultProvider.ProviderName, AkvStoreProvider}
+                    {"AZURE_KEY_VAULT", AkvStoreProvider},
+                    { "DummyProvider", dummyProvider}
                 };
 
                 SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customProviders: customAkvKeyStoreProviders);

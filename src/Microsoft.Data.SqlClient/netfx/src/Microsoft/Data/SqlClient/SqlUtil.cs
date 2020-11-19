@@ -20,6 +20,8 @@ using SysTx = System.Transactions;
 namespace Microsoft.Data.SqlClient
 {
     using Microsoft.Data.Common;
+    using Microsoft.Data.Encryption.Cryptography;
+
     static internal class AsyncHelper
     {
         internal static Task CreateContinuationTask(Task task, Action onSuccess, SqlInternalConnectionTds connectionToDoom = null, Action<Exception> onFailure = null)
@@ -1460,13 +1462,13 @@ namespace Microsoft.Data.SqlClient
                                 expectedLength), TdsEnums.TCE_PARAM_ENCRYPTIONKEY);
         }
 
-        static internal Exception InvalidEncryptionType(string algorithmName, SqlClientEncryptionType encryptionType, params SqlClientEncryptionType[] validEncryptionTypes)
+        static internal Exception InvalidEncryptionType(string algorithmName, EncryptionType encryptionType, params EncryptionType[] validEncryptionTypes)
         {
             const string valueSeparator = @", ";
             return ADP.Argument(StringsHelper.GetString(
                                 Strings.TCE_InvalidEncryptionType,
                                 algorithmName,
-                                encryptionType.ToString(),
+                                encryptionType.ToString("F"),
                                 string.Join(valueSeparator, validEncryptionTypes.Select((validEncryptionType => @"'" + validEncryptionType + @"'")))), TdsEnums.TCE_PARAM_ENCRYPTIONTYPE);
         }
 
@@ -1778,7 +1780,7 @@ namespace Microsoft.Data.SqlClient
 
         static internal Exception KeyDecryptionFailed(string providerName, string keyHex, Exception e)
         {
-            if (providerName.Equals(SqlColumnEncryptionCertificateStoreProvider.ProviderName))
+            if (providerName.Equals("MSSQL_CERTIFICATE_STORE"))
             {
                 return GetExceptionArray(null, StringsHelper.GetString(Strings.TCE_KeyDecryptionFailedCertStore, providerName, keyHex), e);
             }
@@ -1877,6 +1879,11 @@ namespace Microsoft.Data.SqlClient
         static internal Exception EmptyProviderName()
         {
             return ADP.ArgumentNull(TdsEnums.TCE_PARAM_CLIENT_KEYSTORE_PROVIDERS, StringsHelper.GetString(Strings.TCE_EmptyProviderName));
+        }
+
+        static internal Exception RegisterUserKeyStoreProviderWithoutAuthenticating()
+        {
+            return ADP.InvalidOperation(StringsHelper.GetString(Strings.TCE_RegisterUserKeyStoreProviderWithoutAuthenticating));
         }
 
         //

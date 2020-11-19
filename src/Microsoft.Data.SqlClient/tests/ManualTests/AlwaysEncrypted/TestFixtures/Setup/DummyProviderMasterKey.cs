@@ -8,30 +8,22 @@ using Microsoft.Data.Encryption.Cryptography;
 
 namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted.Setup
 {
-    public class CspColumnMasterKey : ColumnMasterKey
+  public  class DummyProviderMasterKey : ColumnMasterKey
     {
         public StoreLocation CertificateStoreLocation { get; set; } = StoreLocation.CurrentUser;
         public StoreName CertificateStoreName { get; set; } = StoreName.My;
         public string Thumbprint { get; }
         public override string KeyPath { get; }
 
-        public CspColumnMasterKey(string name, string certificateThumbprint, EncryptionKeyStoreProvider certStoreProvider, bool allowEnclaveComputations) : base(name)
+        public DummyProviderMasterKey(string name, string certificateThumbprint, EncryptionKeyStoreProvider certStoreProvider, bool allowEnclaveComputations) : base(name)
         {
-            KeyStoreProviderName = @"MSSQL_CERTIFICATE_STORE";
+            // everything is valid except the provider name, which doesn't exist
+            KeyStoreProviderName = "DummyProvider";
             Thumbprint = certificateThumbprint;
             KeyPath = string.Concat(CertificateStoreLocation.ToString(), "/", CertificateStoreName.ToString(), "/", Thumbprint);
-
+            
             byte[] cmkSign = certStoreProvider.Sign(KeyPath, allowEnclaveComputations);
             CmkSignStr = string.Concat("0x", BitConverter.ToString(cmkSign).Replace("-", string.Empty));
         }
-
-        public CspColumnMasterKey(string name, string providerName, string cspKeyPath, EncryptionKeyStoreProvider certStoreProvider, bool allowEnclaveComputations) : base(name)
-        {
-            KeyStoreProviderName = providerName;
-            KeyPath = cspKeyPath;
-            byte[] cmkSign = certStoreProvider.Sign(KeyPath, allowEnclaveComputations);
-            CmkSignStr = string.Concat("0x", BitConverter.ToString(cmkSign).Replace("-", string.Empty));
-        }
-
     }
 }

@@ -2,6 +2,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using Microsoft.Data.Encryption.Cryptography;
+
 namespace Microsoft.Data.SqlClient
 {
     /// <summary>
@@ -18,6 +20,6 @@ namespace Microsoft.Data.SqlClient
         /// <param name="encryptionType">Encryption Type, some algorithms will need this</param>
         /// <param name="encryptionAlgorithm">Encryption algorithm name. Needed for extracting version bits</param>
         /// <returns>Return a newly created SqlClientEncryptionAlgorithm instance</returns>
-        internal abstract SqlClientEncryptionAlgorithm Create(SqlClientSymmetricKey encryptionKey, SqlClientEncryptionType encryptionType, string encryptionAlgorithm);
+        internal abstract AeadAes256CbcHmac256EncryptionAlgorithm GetOrCreate(DataEncryptionKey encryptionKey, EncryptionType encryptionType, string encryptionAlgorithm);
     }
 }

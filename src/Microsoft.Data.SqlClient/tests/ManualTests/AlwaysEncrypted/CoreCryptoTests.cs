@@ -1,16 +1,25 @@
-﻿using Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted.Setup;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using Microsoft.Data.SqlClient;
 using System.Diagnostics;
 using Xunit;
+using Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted.Setup;
+using Microsoft.Data.Encryption.Cryptography;
 
 namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted
 {
     public class CoreCryptoTests : IClassFixture<SQLSetupStrategyCertStoreProvider>
     {
+        private SQLSetupStrategyCertStoreProvider fixture;
+
+        private readonly string tableName;
+
+        public CoreCryptoTests(SQLSetupStrategyCertStoreProvider context)
+        {
+            fixture = context;
+            tableName = fixture.BulkCopyAETestTable.Name;
+        }
+
         // Synapse: Always Encrypted not supported in Azure Synapse.
         [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureSynapse))]
         [PlatformSpecific(TestPlatforms.Windows)]
@@ -97,7 +106,8 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted
         private void TestEncryptionResultUsingAead(byte[] plainText, byte[] rootKey, CertificateUtility.CColumnEncryptionType encryptionType, byte[] expectedFinalCellValue)
         {
             // Encrypt.
-            byte[] encryptedCellData = CertificateUtility.EncryptDataUsingAED(plainText, rootKey, encryptionType);
+            byte[] encryptedCek = fixture.CertStoreProvider.WrapKey(fixture.keyPath, KeyEncryptionKeyAlgorithm.RSA_OAEP, rootKey);
+            byte[] encryptedCellData = CertificateUtility.EncryptDataUsingAED(plainText, encryptedCek, encryptionType, fixture.keyPath, fixture.CertStoreProvider);
             Debug.Assert(encryptedCellData != null && encryptedCellData.Length > 0);
 
             Assert.True(encryptedCellData.SequenceEqual(expectedFinalCellValue), "Final Cell Value does not match with the native code baseline.");
@@ -112,8 +122,9 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted
         /// <param name="expectedPlainText"></param>
         private void TestDecryptionResultUsingAead(byte[] cipherText, byte[] rootKey, CertificateUtility.CColumnEncryptionType encryptionType, byte[] expectedPlainText)
         {
-            // Decrypt.
-            byte[] decryptedCellData = CertificateUtility.DecryptDataUsingAED(cipherText, rootKey, encryptionType);
+            // Decrypt
+            byte[] encryptedCek = fixture.CertStoreProvider.WrapKey(fixture.keyPath, KeyEncryptionKeyAlgorithm.RSA_OAEP, rootKey);
+            byte[] decryptedCellData = CertificateUtility.DecryptDataUsingAED(cipherText, encryptedCek, encryptionType, fixture.keyPath, fixture.CertStoreProvider);
             Debug.Assert(decryptedCellData != null);
 
             Assert.True(decryptedCellData.SequenceEqual(expectedPlainText), "Decrypted cell data does not match with the native code baseline.");

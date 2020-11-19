@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data;
-using System.Data.SqlClient;
-using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using Xunit;
 
@@ -213,7 +210,7 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted
             }
 
             // Clear any cache
-            CertificateUtility.CleanSqlClientCache();
+            //CertificateUtility.CleanSqlClientCache();
 
             // Prepare a dictionary with null list.
             SqlConnection.ColumnEncryptionTrustedMasterKeyPaths.Add(connBuilder.DataSource, (List<string>)null);

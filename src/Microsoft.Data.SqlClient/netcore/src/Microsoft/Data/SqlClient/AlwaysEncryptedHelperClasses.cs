@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Microsoft.Data.Encryption.Cryptography;
 using Microsoft.Data.SqlClient.Server;
 
 namespace Microsoft.Data.SqlClient
@@ -24,6 +25,7 @@ namespace Microsoft.Data.SqlClient
         internal string keyPath;
         internal string keyStoreName;
         internal string algorithmName;
+        //internal bool isRequestedByEnclave;
     }
 
     /// <summary>
@@ -142,9 +144,9 @@ namespace Microsoft.Data.SqlClient
         /// <param name="keyPath"></param>
         /// <param name="keyStoreName"></param>
         /// <param name="algorithmName"></param>
-        internal void Add(byte[] encryptedKey, int databaseId, int cekId, int cekVersion, byte[] cekMdVersion, string keyPath, string keyStoreName, string algorithmName)
+        ///// <param name="isRequestedByEnclave"></param>
+        internal void Add(byte[] encryptedKey, int databaseId, int cekId, int cekVersion, byte[] cekMdVersion, string keyPath, string keyStoreName, string algorithmName/*, bool isRequestedByEnclave = false*/)
         {
-
             Debug.Assert(_columnEncryptionKeyValues != null, "_columnEncryptionKeyValues should already be initialized.");
 
             SqlEncryptionKeyInfo encryptionKey = new SqlEncryptionKeyInfo
@@ -157,7 +159,9 @@ namespace Microsoft.Data.SqlClient
                 keyPath = keyPath,
                 keyStoreName = keyStoreName,
                 algorithmName = algorithmName
+                //isRequestedByEnclave = isRequestedByEnclave
             };
+
             _columnEncryptionKeyValues.Add(encryptionKey);
 
             if (0 == _databaseId)
@@ -274,7 +278,7 @@ namespace Microsoft.Data.SqlClient
         /// <summary>
         /// Encryption Algorithm Handle.
         /// </summary>
-        private SqlClientEncryptionAlgorithm _sqlClientEncryptionAlgorithm;
+        private AeadAes256CbcHmac256EncryptionAlgorithm _sqlClientEncryptionAlgorithm;
 
         /// <summary>
         /// Sql Encryption Key Info.
@@ -349,7 +353,7 @@ namespace Microsoft.Data.SqlClient
         /// <summary>
         /// Return the cipher encryption algorithm handle.
         /// </summary>
-        internal SqlClientEncryptionAlgorithm CipherAlgorithm
+        internal AeadAes256CbcHmac256EncryptionAlgorithm CipherAlgorithm
         {
             get
             {

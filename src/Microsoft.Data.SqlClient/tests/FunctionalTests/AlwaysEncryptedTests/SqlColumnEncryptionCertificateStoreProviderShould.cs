@@ -6,9 +6,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Principal;
 using System.Text;
+using Microsoft.Data.Encryption.Cryptography;
 using Xunit;
 using Xunit.Sdk;
 using static Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests.TestFixtures;
@@ -18,7 +20,8 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
     public class SqlColumnEncryptionCertificateStoreProviderWindowsShould : IClassFixture<CertificateFixture>
     {
         private const string MASTER_KEY_PATH = "CurrentUser/My/C74D53B816A971E3FF9714FE1DD2E57E1710D946";
-        private const string ENCRYPTION_ALGORITHM = "RSA_OAEP";
+        public const KeyEncryptionKeyAlgorithm ENCRYPTION_ALGORITHM = KeyEncryptionKeyAlgorithm.RSA_OAEP;
+
 
         /// <summary>
         /// Current User path prefix.
@@ -100,20 +103,20 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
         [Theory]
         [InvalidDecryptionParameters]
         [PlatformSpecific(TestPlatforms.Windows)]
-        public void ThrowExceptionWithInvalidParameterWhileDecryptingColumnEncryptionKey(string errorMsg, Type exceptionType, string masterKeyPath, string encryptionAlgorithm, byte[] bytes)
+        public void ThrowExceptionWithInvalidParameterWhileDecryptingColumnEncryptionKey(string errorMsg, Type exceptionType, string masterKeyPath, KeyEncryptionKeyAlgorithm encryptionAlgorithm, byte[] bytes)
         {
             var provider = new SqlColumnEncryptionCertificateStoreProvider();
-            Exception ex = Assert.Throws(exceptionType, () => provider.DecryptColumnEncryptionKey(masterKeyPath, encryptionAlgorithm, bytes));
+            Exception ex = Assert.Throws(exceptionType, () => provider.UnwrapKey(masterKeyPath, encryptionAlgorithm, bytes));
             Assert.Matches(errorMsg, ex.Message);
         }
 
         [Theory]
         [InvalidEncryptionParameters]
         [PlatformSpecific(TestPlatforms.Windows)]
-        public void ThrowExceptionWithInvalidParameterWhileEncryptingColumnEncryptionKey(string errorMsg, Type exceptionType, string masterKeyPath, string encryptionAlgorithm, byte[] bytes)
+        public void ThrowExceptionWithInvalidParameterWhileEncryptingColumnEncryptionKey(string errorMsg, Type exceptionType, string masterKeyPath, KeyEncryptionKeyAlgorithm encryptionAlgorithm, byte[] bytes)
         {
             var provider = new SqlColumnEncryptionCertificateStoreProvider();
-            Exception ex = Assert.Throws(exceptionType, () => provider.EncryptColumnEncryptionKey(masterKeyPath, encryptionAlgorithm, bytes));
+            Exception ex = Assert.Throws(exceptionType, () => provider.WrapKey(masterKeyPath, encryptionAlgorithm, bytes));
             Assert.Matches(errorMsg, ex.Message);
         }
 
@@ -123,7 +126,7 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
         public void ThrowExceptionWithInvalidParameterWhileSigningColumnMasterKeyMetadata(string errorMsg, Type exceptionType, string masterKeyPath)
         {
             var provider = new SqlColumnEncryptionCertificateStoreProvider();
-            Exception ex = Assert.Throws(exceptionType, () => provider.SignColumnMasterKeyMetadata(masterKeyPath, true));
+            Exception ex = Assert.Throws(exceptionType, () => provider.Sign(masterKeyPath, true));
             Assert.Matches(errorMsg, ex.Message);
         }
 
@@ -135,7 +138,7 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
         public void SetStoreLocationApproperiatelyFromMasterKeyPathRegardlessOfCase(string masterKeyPath)
         {
             var provider = new SqlColumnEncryptionCertificateStoreProvider();
-            byte[] ciphertext = provider.EncryptColumnEncryptionKey(masterKeyPath, ENCRYPTION_ALGORITHM, new byte[] { 1, 2, 3, 4, 5 });
+            byte[] ciphertext = provider.WrapKey(masterKeyPath, ENCRYPTION_ALGORITHM, new byte[] { 1, 2, 3, 4, 5 });
             Assert.NotNull(ciphertext);
         }
 
@@ -147,21 +150,21 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
         public void SetStoreNameApproperiatelyFromMasterKeyPathRegardlessOfCase(string masterKeyPath)
         {
             var provider = new SqlColumnEncryptionCertificateStoreProvider();
-            byte[] ciphertext = provider.EncryptColumnEncryptionKey(masterKeyPath, ENCRYPTION_ALGORITHM, new byte[] { 1, 2, 3, 4, 5 });
+            byte[] ciphertext = provider.WrapKey(masterKeyPath, ENCRYPTION_ALGORITHM, new byte[] { 1, 2, 3, 4, 5 });
             Assert.NotNull(ciphertext);
         }
 
-        [Theory]
-        [InlineData("RSA_OAEP")]
-        [InlineData("rsa_oaep")]
-        [InlineData("RsA_oAeP")]
-        [PlatformSpecific(TestPlatforms.Windows)]
-        public void AcceptEncryptionAlgorithmRegardlessOfCase(string algorithm)
-        {
-            var provider = new SqlColumnEncryptionCertificateStoreProvider();
-            byte[] ciphertext = provider.EncryptColumnEncryptionKey(MASTER_KEY_PATH, algorithm, new byte[] { 1, 2, 3, 4, 5 });
-            Assert.NotNull(ciphertext);
-        }
+        //[Theory]
+        //[InlineData("RSA_OAEP")]
+        //[InlineData("rsa_oaep")]
+        //[InlineData("RsA_oAeP")]
+        //[PlatformSpecific(TestPlatforms.Windows)]
+        //public void AcceptEncryptionAlgorithmRegardlessOfCase(string algorithm)
+        //{
+        //    var provider = new SqlColumnEncryptionCertificateStoreProvider();
+        //    byte[] ciphertext = provider.WrapKey(MASTER_KEY_PATH, algorithm, new byte[] { 1, 2, 3, 4, 5 });
+        //    Assert.NotNull(ciphertext);
+        //}
 
         [Theory]
         [InlineData(32)]
@@ -175,8 +178,8 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
             var randomNumberGenerator = new Random();
             randomNumberGenerator.NextBytes(columnEncryptionKey);
 
-            byte[] encryptedData = provider.EncryptColumnEncryptionKey(MASTER_KEY_PATH, ENCRYPTION_ALGORITHM, columnEncryptionKey);
-            byte[] decryptedData = provider.DecryptColumnEncryptionKey(MASTER_KEY_PATH, ENCRYPTION_ALGORITHM, encryptedData);
+            byte[] encryptedData = provider.WrapKey(MASTER_KEY_PATH, ENCRYPTION_ALGORITHM, columnEncryptionKey);
+            byte[] decryptedData = provider.UnwrapKey(MASTER_KEY_PATH, ENCRYPTION_ALGORITHM, encryptedData);
             Assert.Equal(columnEncryptionKey, decryptedData);
         }
 
@@ -184,27 +187,27 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
         [InlineData(true)]
         [InlineData(false)]
         [PlatformSpecific(TestPlatforms.Windows)]
-        public void SignAndVerifyColumnMasterKeyMetadataSuccessfully(bool allowEnclaveComputations)
+        public void SignAndVerifySuccessfully(bool allowEnclaveComputations)
         {
             var provider = new SqlColumnEncryptionCertificateStoreProvider();
-            byte[] signature = provider.SignColumnMasterKeyMetadata(MASTER_KEY_PATH, allowEnclaveComputations);
+            byte[] signature = provider.Sign(MASTER_KEY_PATH, allowEnclaveComputations);
             Assert.NotNull(signature);
-            Assert.True(provider.VerifyColumnMasterKeyMetadata(MASTER_KEY_PATH, allowEnclaveComputations, signature));
-            Assert.False(provider.VerifyColumnMasterKeyMetadata(MASTER_KEY_PATH, !allowEnclaveComputations, signature));
+            Assert.True(provider.Verify(MASTER_KEY_PATH, allowEnclaveComputations, signature));
+            Assert.False(provider.Verify(MASTER_KEY_PATH, !allowEnclaveComputations, signature));
         }
 
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
         [PlatformSpecific(TestPlatforms.Windows)]
-        public void FailToVerifyColumnMasterKeyMetadataWithWrongCertificate(bool allowEnclaveComputations)
+        public void FailToVerifyWithWrongCertificate(bool allowEnclaveComputations)
         {
             var provider = new SqlColumnEncryptionCertificateStoreProvider();
 
-            byte[] signature = provider.SignColumnMasterKeyMetadata(MASTER_KEY_PATH, allowEnclaveComputations);
+            byte[] signature = provider.Sign(MASTER_KEY_PATH, allowEnclaveComputations);
             Assert.NotNull(signature);
             Assert.False(
-                provider.VerifyColumnMasterKeyMetadata("CurrentUser/My/4281446463C6F7F5B8EDFFA4BD6E345E46857CAD", allowEnclaveComputations, signature));
+                provider.Verify("CurrentUser/My/4281446463C6F7F5B8EDFFA4BD6E345E46857CAD", allowEnclaveComputations, signature));
         }
 
         [Fact]
@@ -213,10 +216,10 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
         {
             var input = new byte[] { 1, 2, 3, 4, 5 };
             var provider = new SqlColumnEncryptionCertificateStoreProvider();
-            byte[] ciphertext = provider.EncryptColumnEncryptionKey(MASTER_KEY_PATH, ENCRYPTION_ALGORITHM,
+            byte[] ciphertext = provider.WrapKey(MASTER_KEY_PATH, ENCRYPTION_ALGORITHM,
                 new byte[] { 1, 2, 3, 4, 5 });
             byte[] output =
-                provider.DecryptColumnEncryptionKey(MASTER_KEY_PATH, ENCRYPTION_ALGORITHM, ciphertext);
+                provider.UnwrapKey(MASTER_KEY_PATH, ENCRYPTION_ALGORITHM, ciphertext);
             Assert.Equal(input, output);
         }
 
@@ -246,7 +249,7 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
             SqlColumnEncryptionCertificateStoreProvider sqlColumnCertStoreProvider = new SqlColumnEncryptionCertificateStoreProvider();
 
             // Encrypt the CEK.
-            byte[] cipherText1 = sqlColumnCertStoreProvider.EncryptColumnEncryptionKey(masterKeyPath, ENCRYPTION_ALGORITHM, rootKey);
+            byte[] cipherText1 = sqlColumnCertStoreProvider.WrapKey(masterKeyPath, ENCRYPTION_ALGORITHM, rootKey);
             Assert.True(cipherText1 != null);
 
             // Convoluted derivation of the encrypted CEK.
@@ -256,11 +259,11 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
             Assert.True(cipherText2.SequenceEqual(cipherText1), "cipherText1 and its convoluted hex string reversal don't match.");
 
             // Decrypt Column Encryption Key using cipherText1
-            byte[] rootKeyReversal1 = sqlColumnCertStoreProvider.DecryptColumnEncryptionKey(masterKeyPath, ENCRYPTION_ALGORITHM, cipherText1);
+            byte[] rootKeyReversal1 = sqlColumnCertStoreProvider.UnwrapKey(masterKeyPath, ENCRYPTION_ALGORITHM, cipherText1);
             Assert.True(rootKeyReversal1 != null);
 
             // Decrypt Column Encryption Key using cipherText2
-            byte[] rootKeyReversal2 = sqlColumnCertStoreProvider.DecryptColumnEncryptionKey(masterKeyPath, ENCRYPTION_ALGORITHM, cipherText2);
+            byte[] rootKeyReversal2 = sqlColumnCertStoreProvider.UnwrapKey(masterKeyPath, ENCRYPTION_ALGORITHM, cipherText2);
             Assert.True(rootKeyReversal2 != null);
 
             Assert.True(rootKeyReversal1.SequenceEqual(rootKeyReversal2), "rootKeyReversal1 and rootKeyReversal2 don't match.");
@@ -273,14 +276,16 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
         /// <param name="plainTextInBytes"></param>
         /// <param name="rootKey"></param>
         /// <param name="encryptionType"></param>
-        private void TestEncryptionReversalUsingAead(byte[] plainTextInBytes, byte[] rootKey, Utility.CColumnEncryptionType encryptionType)
+        private void TestEncryptionReversalUsingAead(byte[] plainTextInBytes, byte[] encryptedKey, Utility.CColumnEncryptionType encryptionType)
         {
+            var provider = new SqlColumnEncryptionCertificateStoreProvider();
+
             // Encrypt.
-            byte[] encryptedCellBlob = Utility.EncryptDataUsingAED(plainTextInBytes, rootKey, encryptionType);
+            byte[] encryptedCellBlob = Utility.EncryptDataUsingAED(plainTextInBytes, encryptedKey, encryptionType, MASTER_KEY_PATH, provider);
             Assert.True(encryptedCellBlob != null && encryptedCellBlob.Length > 0);
 
             // Decrypt.
-            byte[] decryptedCellData = Utility.DecryptDataUsingAED(encryptedCellBlob, rootKey, encryptionType);
+            byte[] decryptedCellData = Utility.DecryptDataUsingAED(encryptedCellBlob, encryptedKey, encryptionType, MASTER_KEY_PATH, provider);
             Assert.True(decryptedCellData != null);
 
             // Compare decrypted value against plain text.
@@ -314,12 +319,13 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
 
             Assert.True(plainText != null);
 
-            // Generate a rootkey.
+            // Generate an encrypted key
             byte[] rootKey = Utility.GenerateRandomBytes(RootKeyLengthInBytes);
-            Assert.True(rootKey != null && rootKey.Length > 0);
-
+            SqlColumnEncryptionCertificateStoreProvider provider = new SqlColumnEncryptionCertificateStoreProvider();
+            byte[] encryptedKey = provider.WrapKey(MASTER_KEY_PATH, ENCRYPTION_ALGORITHM, rootKey);
+            Assert.True(encryptedKey != null && encryptedKey.Length > 0);
             // Test EncryptDecrypt using Aead.
-            TestEncryptionReversalUsingAead(plainText, rootKey, encType);
+            TestEncryptionReversalUsingAead(plainText, encryptedKey, encType);
         }
 
         [Fact]
@@ -333,45 +339,74 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
                 return;
             }
 
+            SqlConnection connection = new SqlConnection();
+
+            // Verify that we are unable to set it to null.
             string expectedMessage1 = "Column encryption key store provider dictionary cannot be null. Expecting a non-null value.";
-            // Verify that we are able to set it to null.
-            ArgumentException e1 = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(null));
+            IDictionary<string, SqlColumnEncryptionKeyStoreProvider> customColumnEncryptionKeyStoreProviders = null;
+            IDictionary<string, EncryptionKeyStoreProvider> customEncryptionKeyStoreProviders = null;
+            ArgumentException e1 = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customColumnEncryptionKeyStoreProviders));
+            Assert.Contains(expectedMessage1, e1.Message);
+            e1 = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customEncryptionKeyStoreProviders));
+            Assert.Contains(expectedMessage1, e1.Message);
+            e1 = Assert.Throws<ArgumentNullException>(() => connection.RegisterColumnEncryptionKeyStoreProvidersOnConnection(customEncryptionKeyStoreProviders));
             Assert.Contains(expectedMessage1, e1.Message);
 
             // A dictionary holding custom providers.
-            IDictionary<string, SqlColumnEncryptionKeyStoreProvider> customProviders = new Dictionary<string, SqlColumnEncryptionKeyStoreProvider>();
-            customProviders.Add(new KeyValuePair<string, SqlColumnEncryptionKeyStoreProvider>(@"DummyProvider", new DummyKeyStoreProvider()));
+            customColumnEncryptionKeyStoreProviders = new Dictionary<string, SqlColumnEncryptionKeyStoreProvider>() { { "DummyProvider", new DummySqlColumnEncryptionKeyStoreProvider() } };
+            customEncryptionKeyStoreProviders = new Dictionary<string, EncryptionKeyStoreProvider>() { { "DummyProvider", new DummyEncryptionKeyStoreProvider() } };
 
             // Verify that setting a provider in the list with null value throws an exception.
-            customProviders.Add(new KeyValuePair<string, SqlColumnEncryptionKeyStoreProvider>(@"CustomProvider", null));
-            string expectedMessage2 = "Null reference specified for key store provider 'CustomProvider'. Expecting a non-null value.";
-            ArgumentNullException e2 = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customProviders));
-            Assert.Contains(expectedMessage2, e2.Message);
-            customProviders.Remove(@"CustomProvider");
+            customColumnEncryptionKeyStoreProviders.Add(@"CustomProvider", null);
+            customEncryptionKeyStoreProviders.Add(@"CustomProvider", null);
+            string expectedMessage2 = "Null reference specified for key store provider '{0}'. Expecting a non-null value.";
+            ArgumentNullException e2 = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customColumnEncryptionKeyStoreProviders));
+            Assert.Contains(string.Format(expectedMessage2, "CustomProvider"), e2.Message);
+            e2 = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customEncryptionKeyStoreProviders));
+            Assert.Contains(string.Format(expectedMessage2, "CustomProvider"), e2.Message);     
+            e2 = Assert.Throws<ArgumentNullException>(() => connection.RegisterColumnEncryptionKeyStoreProvidersOnConnection(customEncryptionKeyStoreProviders));
+            Assert.Contains(string.Format(expectedMessage2, "CustomProvider"), e2.Message);
+            customColumnEncryptionKeyStoreProviders.Remove(@"CustomProvider");
+            customEncryptionKeyStoreProviders.Remove(@"CustomProvider");
 
             // Verify that setting a provider in the list with an empty provider name throws an exception.
-            customProviders.Add(new KeyValuePair<string, SqlColumnEncryptionKeyStoreProvider>(@"", new DummyKeyStoreProvider()));
+            customColumnEncryptionKeyStoreProviders.Add("", new DummySqlColumnEncryptionKeyStoreProvider());
+            customEncryptionKeyStoreProviders.Add("", new DummyEncryptionKeyStoreProvider());
             string expectedMessage3 = "Invalid key store provider name specified. Key store provider names cannot be null or empty";
-            ArgumentNullException e3 = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customProviders));
+            ArgumentNullException e3 = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customColumnEncryptionKeyStoreProviders));
+            Assert.Contains(expectedMessage3, e3.Message);
+            e3 = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customEncryptionKeyStoreProviders));
+            Assert.Contains(expectedMessage3, e3.Message);
+            e3 = Assert.Throws<ArgumentNullException>(() => connection.RegisterColumnEncryptionKeyStoreProvidersOnConnection(customEncryptionKeyStoreProviders));
             Assert.Contains(expectedMessage3, e3.Message);
 
-            customProviders.Remove(@"");
+            customColumnEncryptionKeyStoreProviders.Remove("");
+            customEncryptionKeyStoreProviders.Remove("");
 
-            // Verify that setting a provider in the list with name that starts with 'MSSQL_' throws an exception.
-            customProviders.Add(new KeyValuePair<string, SqlColumnEncryptionKeyStoreProvider>(@"MSSQL_MyStore", new SqlColumnEncryptionCertificateStoreProvider()));
-            string expectedMessage4 = "Invalid key store provider name 'MSSQL_MyStore'. 'MSSQL_' prefix is reserved for system key store providers.";
-            ArgumentException e4 = Assert.Throws<ArgumentException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customProviders));
+            //// Verify that setting a provider in the list with name that starts with 'MSSQL_' throws an exception.
+            customColumnEncryptionKeyStoreProviders.Add(@"MSSQL_DUMMY", new DummySqlColumnEncryptionKeyStoreProvider());
+            customEncryptionKeyStoreProviders.Add(@"MSSQL_DUMMY", new DummyEncryptionKeyStoreProvider());
+            string expectedMessage4 = "Invalid key store provider name 'MSSQL_DUMMY'. 'MSSQL_' prefix is reserved for system key store providers.";
+            ArgumentException e4 = Assert.Throws<ArgumentException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customColumnEncryptionKeyStoreProviders));
+            Assert.Contains(expectedMessage4, e4.Message);
+            e4 = Assert.Throws<ArgumentException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customEncryptionKeyStoreProviders));
+            Assert.Contains(expectedMessage4, e4.Message);
+            e4 = Assert.Throws<ArgumentException>(() => connection.RegisterColumnEncryptionKeyStoreProvidersOnConnection(customEncryptionKeyStoreProviders));
             Assert.Contains(expectedMessage4, e4.Message);
 
-            customProviders.Remove(@"MSSQL_MyStore");
+            customColumnEncryptionKeyStoreProviders.Remove("MSSQL_DUMMY");
+            customEncryptionKeyStoreProviders.Remove("MSSQL_DUMMY");
 
             // Verify that setting a provider in the list with name that starts with 'MSSQL_' but different case throws an exception.
-            customProviders.Add(new KeyValuePair<string, SqlColumnEncryptionKeyStoreProvider>(@"MsSqL_MyStore", new SqlColumnEncryptionCertificateStoreProvider()));
-            string expectedMessage5 = "Invalid key store provider name 'MsSqL_MyStore'. 'MSSQL_' prefix is reserved for system key store providers.";
-            ArgumentException e5 = Assert.Throws<ArgumentException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customProviders));
+            customColumnEncryptionKeyStoreProviders.Add(@"MsSqL_DUMMY", new DummySqlColumnEncryptionKeyStoreProvider());
+            customEncryptionKeyStoreProviders.Add(@"MsSqL_DUMMY", new DummyEncryptionKeyStoreProvider());
+            string expectedMessage5 = "Invalid key store provider name 'MsSqL_DUMMY'. 'MSSQL_' prefix is reserved for system key store providers.";
+            ArgumentException e5 = Assert.Throws<ArgumentException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customColumnEncryptionKeyStoreProviders));
             Assert.Contains(expectedMessage5, e5.Message);
-
-            customProviders.Remove(@"MsSqL_MyStore");
+            e5 = Assert.Throws<ArgumentException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customEncryptionKeyStoreProviders));
+            Assert.Contains(expectedMessage5, e5.Message);
+            e5 = Assert.Throws<ArgumentException>(() => connection.RegisterColumnEncryptionKeyStoreProvidersOnConnection(customEncryptionKeyStoreProviders));
+            Assert.Contains(expectedMessage5, e5.Message);
 
             // Clear any providers set by other tests.
             Utility.ClearSqlConnectionProviders();
@@ -417,25 +452,28 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
             SqlColumnEncryptionCertificateStoreProvider sqlColumnCertStoreProvider = new SqlColumnEncryptionCertificateStoreProvider();
 
             // Encrypt the CEK.
-            byte[] cipherText1 = sqlColumnCertStoreProvider.EncryptColumnEncryptionKey(masterKeyPath, ENCRYPTION_ALGORITHM, rootKey);
+            byte[] cipherText1 = sqlColumnCertStoreProvider.WrapKey(masterKeyPath, ENCRYPTION_ALGORITHM, rootKey);
             Assert.True(cipherText1 != null);
         }
 
         [Theory]
         [PlatformSpecific(TestPlatforms.Windows)]
-        [InlineData(new object[3] { @"iv", Utility.CColumnEncryptionType.Randomized, @"Specified ciphertext has an invalid authentication tag.\s+\(?Parameter (name: )?'?cipherText('\))?" })]
-        [InlineData(new object[3] { @"tag", Utility.CColumnEncryptionType.Randomized, @"Specified ciphertext has an invalid authentication tag.\s+\(?Parameter (name: )?'?cipherText('\))?" })]
-        [InlineData(new object[3] { @"cipher", Utility.CColumnEncryptionType.Randomized, @"Specified ciphertext has an invalid authentication tag.\s+\(?Parameter (name: )?'?cipherText('\))?" })]
-        [InlineData(new object[3] { @"version", Utility.CColumnEncryptionType.Randomized, @"The specified ciphertext's encryption algorithm version '02' does not match the expected encryption algorithm version '01'.\s+\(?Parameter (name: )?'?cipherText('\))?" })]
+        [InlineData(new object[3] { @"iv", Utility.CColumnEncryptionType.Randomized, @"Specified ciphertext has an invalid authentication tag." })]
+        [InlineData(new object[3] { @"tag", Utility.CColumnEncryptionType.Randomized, @"Specified ciphertext has an invalid authentication tag." })]
+        [InlineData(new object[3] { @"cipher", Utility.CColumnEncryptionType.Randomized, @"Specified ciphertext has an invalid authentication tag." })]
         public void TestEncryptedCellValueTampering(string parameterToTamper, Utility.CColumnEncryptionType encryptionType, string expectedErrorMessage)
         {
             Assert.True(!string.IsNullOrWhiteSpace(parameterToTamper));
             Assert.True(!string.IsNullOrWhiteSpace(expectedErrorMessage));
 
+            SqlColumnEncryptionCertificateStoreProvider provider = new SqlColumnEncryptionCertificateStoreProvider();
+            KeyEncryptionKey masterKey = KeyEncryptionKey.GetOrCreate("CMK1", MASTER_KEY_PATH, provider);
             byte[] rootKey = Utility.GenerateRandomBytes(RootKeyLengthInBytes);
             Assert.True(rootKey != null);
+            byte[] encryptedKey = masterKey.EncryptEncryptionKey(rootKey);
+            Assert.True(encryptedKey != null);
 
-            byte[] encryptedCellValue = Utility.EncryptDataUsingAED(plainTextData: new byte[3] { 0x01, 0x02, 0x03 }, key: rootKey, encryptionType: encryptionType);
+            byte[] encryptedCellValue = Utility.EncryptDataUsingAED(plainTextData: new byte[3] { 0x01, 0x02, 0x03 }, encryptedKey, encryptionType, MASTER_KEY_PATH, provider);
             Assert.True(encryptedCellValue != null && encryptedCellValue.Length > 0);
 
             switch (parameterToTamper)
@@ -463,8 +501,8 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
             }
 
             // try decrypting the tampered cell value.
-            TargetInvocationException e = Assert.Throws<TargetInvocationException>(() => Utility.DecryptDataUsingAED(encryptedCellValue, rootKey, encryptionType));
-            Assert.Matches(expectedErrorMessage, e.InnerException.Message);
+            CryptographicException e = Assert.Throws<CryptographicException>(() => Utility.DecryptDataUsingAED(encryptedCellValue, encryptedKey, encryptionType, MASTER_KEY_PATH, provider));
+            Assert.Matches(expectedErrorMessage, e.Message);
         }
 
         public class AeadEncryptionParameters : DataAttribute
@@ -502,7 +540,7 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
         {
             public override IEnumerable<Object[]> GetData(MethodInfo testMethod)
             {
-                yield return new object[2] { StoreLocation.CurrentUser , CurrentUserMyPathPrefix };
+                yield return new object[2] { StoreLocation.CurrentUser, CurrentUserMyPathPrefix };
                 // use localmachine cert path only when current user is Admin.
                 if (CertificateFixture.IsAdmin)
                 {
@@ -532,8 +570,7 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
             private const string TCE_EmptyCertificatePath = @"Internal error. Invalid certificate path: ''. Use the following format: <certificate location>/<certificate store>/<certificate thumbprint>, where <certificate location> is either 'LocalMachine' or 'CurrentUser'.\s+\(?Parameter (name: )?'?masterKeyPath('\))?";
             private const string TCE_NullEncryptedColumnEncryptionKey = @"Internal error. Encrypted column encryption key cannot be null.\s+\(?Parameter (name: )?'?encryptedColumnEncryptionKey('\))?";
             private const string TCE_EmptyEncryptedColumnEncryptionKey = @"Internal error. Empty encrypted column encryption key specified.\s+\(?Parameter (name: )?'?encryptedColumnEncryptionKey('\))?";
-            private const string TCE_NullKeyEncryptionAlgorithm = @"Internal error. Key encryption algorithm cannot be null.\s+\(?Parameter (name: )?'?encryptionAlgorithm('\))?";
-            private const string TCE_InvalidKeyEncryptionAlgorithm = @"Internal error. Invalid key encryption algorithm specified: ''. Expected value: 'RSA_OAEP'.\s+\(?Parameter (name: )?'?encryptionAlgorithm('\))?";
+            private const string TCE_InvalidKeyEncryptionAlgorithm = @"Internal error. Invalid key encryption algorithm specified: '1'. Expected value: 'RSA_OAEP'.\s+\(?Parameter (name: )?'?encryptionAlgorithm('\))?";
             private const string TCE_LargeCertificatePathLength = @"Internal error. Specified certificate path has 32768 bytes, which exceeds maximum length of 32767 bytes.\s+\(?Parameter (name: )?'?masterKeyPath('\))?";
             private const string TCE_InvalidCertificatePath = @"Internal error. Invalid certificate path: 'CurrentUser/My/Thumbprint/extra'. Use the following format: <certificate location>/<certificate store>/<certificate thumbprint>, where <certificate location> is either 'LocalMachine' or 'CurrentUser'.\s+\(?Parameter (name: )?'?masterKeyPath('\))?";
             private const string TCE_InvalidCertificateLocation = @"Internal error. Invalid certificate location 'Invalid' in certificate path 'Invalid/My/Thumbprint'. Use the following format: <certificate location>/<certificate store>/<certificate thumbprint>, where <certificate location> is either 'LocalMachine' or 'CurrentUser'.\s+\(?Parameter (name: )?'?masterKeyPath('\))?";
@@ -551,8 +588,7 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
                 yield return new Object[] { TCE_EmptyCertificatePath, typeof(ArgumentException), "", ENCRYPTION_ALGORITHM, GenerateTestEncryptedBytes(1, 0, 256, 256) };
                 yield return new Object[] { TCE_NullEncryptedColumnEncryptionKey, typeof(ArgumentNullException), MASTER_KEY_PATH, ENCRYPTION_ALGORITHM, null };
                 yield return new Object[] { TCE_EmptyEncryptedColumnEncryptionKey, typeof(ArgumentException), MASTER_KEY_PATH, ENCRYPTION_ALGORITHM, new byte[] { } };
-                yield return new Object[] { TCE_NullKeyEncryptionAlgorithm, typeof(ArgumentNullException), MASTER_KEY_PATH, null, GenerateTestEncryptedBytes(1, 0, 256, 256) };
-                yield return new Object[] { TCE_InvalidKeyEncryptionAlgorithm, typeof(ArgumentException), MASTER_KEY_PATH, "", GenerateTestEncryptedBytes(1, 0, 256, 256) };
+                yield return new Object[] { TCE_InvalidKeyEncryptionAlgorithm, typeof(ArgumentException), MASTER_KEY_PATH, (KeyEncryptionKeyAlgorithm)1, GenerateTestEncryptedBytes(1, 0, 256, 256) };
                 yield return new Object[] { TCE_LargeCertificatePathLength, typeof(ArgumentException), GenerateString(Int16.MaxValue + 1), ENCRYPTION_ALGORITHM, GenerateTestEncryptedBytes(1, 0, 256, 256) };
                 yield return new Object[] { TCE_InvalidCertificatePath, typeof(ArgumentException), "CurrentUser/My/Thumbprint/extra", ENCRYPTION_ALGORITHM, GenerateTestEncryptedBytes(1, 0, 256, 256) };
                 yield return new Object[] { TCE_InvalidCertificateLocation, typeof(ArgumentException), "Invalid/My/Thumbprint", ENCRYPTION_ALGORITHM, GenerateTestEncryptedBytes(1, 0, 256, 256) };
@@ -571,8 +607,7 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
             private const string TCE_EmptyCertificatePath = @"Invalid certificate path: ''. Use the following format: <certificate location>/<certificate store>/<certificate thumbprint>, where <certificate location> is either 'LocalMachine' or 'CurrentUser'.\s+\(?Parameter (name: )?'?masterKeyPath('\))?";
             private const string TCE_NullEncryptedColumnEncryptionKey = @"Column encryption key cannot be null.\s+\(?Parameter (name: )?'?columnEncryptionKey('\))?";
             private const string TCE_EmptyEncryptedColumnEncryptionKey = @"Empty column encryption key specified.\s+\(?Parameter (name: )?'?columnEncryptionKey('\))?";
-            private const string TCE_NullKeyEncryptionAlgorithm = @"Key encryption algorithm cannot be null.\s+\(?Parameter (name: )?'?encryptionAlgorithm('\))?";
-            private const string TCE_InvalidKeyEncryptionAlgorithm = @"Invalid key encryption algorithm specified: ''. Expected value: 'RSA_OAEP'.\s+\(?Parameter (name: )?'?encryptionAlgorithm('\))?";
+            private const string TCE_InvalidKeyEncryptionAlgorithm = @"Invalid key encryption algorithm specified: '1'. Expected value: 'RSA_OAEP'.\s+\(?Parameter (name: )?'?encryptionAlgorithm('\))?";
             private const string TCE_LargeCertificatePathLength = @"Specified certificate path has 32768 bytes, which exceeds maximum length of 32767 bytes.\s+\(?Parameter (name: )?'?masterKeyPath('\))?";
             private const string TCE_InvalidCertificatePath = @"Invalid certificate path: 'CurrentUser/My/Thumbprint/extra'. Use the following format: <certificate location>/<certificate store>/<certificate thumbprint>, where <certificate location> is either 'LocalMachine' or 'CurrentUser'.\s+\(?Parameter (name: )?'?masterKeyPath('\))?";
             private const string TCE_InvalidCertificateLocation = @"Invalid certificate location 'Invalid' in certificate path 'Invalid/My/Thumbprint'. Use the following format: <certificate location>/<certificate store>/<certificate thumbprint>, where <certificate location> is either 'LocalMachine' or 'CurrentUser'.\s+\(?Parameter (name: )?'?masterKeyPath('\))?";
@@ -585,8 +620,7 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
                 yield return new Object[] { TCE_EmptyCertificatePath, typeof(ArgumentException), "", ENCRYPTION_ALGORITHM, GenerateTestEncryptedBytes(1, 0, 256, 256) };
                 yield return new Object[] { TCE_NullEncryptedColumnEncryptionKey, typeof(ArgumentNullException), MASTER_KEY_PATH, ENCRYPTION_ALGORITHM, null };
                 yield return new Object[] { TCE_EmptyEncryptedColumnEncryptionKey, typeof(ArgumentException), MASTER_KEY_PATH, ENCRYPTION_ALGORITHM, new byte[] { } };
-                yield return new Object[] { TCE_NullKeyEncryptionAlgorithm, typeof(ArgumentNullException), MASTER_KEY_PATH, null, GenerateTestEncryptedBytes(1, 0, 256, 256) };
-                yield return new Object[] { TCE_InvalidKeyEncryptionAlgorithm, typeof(ArgumentException), MASTER_KEY_PATH, "", GenerateTestEncryptedBytes(1, 0, 256, 256) };
+                yield return new Object[] { TCE_InvalidKeyEncryptionAlgorithm, typeof(ArgumentException), MASTER_KEY_PATH, (KeyEncryptionKeyAlgorithm)1, GenerateTestEncryptedBytes(1, 0, 256, 256) };
                 yield return new Object[] { TCE_LargeCertificatePathLength, typeof(ArgumentException), GenerateString(Int16.MaxValue + 1), ENCRYPTION_ALGORITHM, GenerateTestEncryptedBytes(1, 0, 256, 256) };
                 yield return new Object[] { TCE_InvalidCertificatePath, typeof(ArgumentException), "CurrentUser/My/Thumbprint/extra", ENCRYPTION_ALGORITHM, GenerateTestEncryptedBytes(1, 0, 256, 256) };
                 yield return new Object[] { TCE_InvalidCertificateLocation, typeof(ArgumentException), "Invalid/My/Thumbprint", ENCRYPTION_ALGORITHM, GenerateTestEncryptedBytes(1, 0, 256, 256) };
@@ -630,10 +664,10 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
         public void ThrowPlatformNotSupportedExceptionInUnix()
         {
             var provider = new SqlColumnEncryptionCertificateStoreProvider();
-            Assert.Throws<PlatformNotSupportedException>(() => provider.EncryptColumnEncryptionKey("", "", new byte[] { }));
-            Assert.Throws<PlatformNotSupportedException>(() => provider.DecryptColumnEncryptionKey("", "", new byte[] { }));
-            Assert.Throws<PlatformNotSupportedException>(() => provider.SignColumnMasterKeyMetadata("", false));
-            Assert.Throws<PlatformNotSupportedException>(() => provider.VerifyColumnMasterKeyMetadata("", false, new byte[] { }));
+            Assert.Throws<PlatformNotSupportedException>(() => provider.WrapKey("", 0, new byte[] { }));
+            Assert.Throws<PlatformNotSupportedException>(() => provider.UnwrapKey("", 0, new byte[] { }));
+            Assert.Throws<PlatformNotSupportedException>(() => provider.Sign("", false));
+            Assert.Throws<PlatformNotSupportedException>(() => provider.Verify("", false, new byte[] { }));
         }
     }
 

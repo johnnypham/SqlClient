@@ -8,6 +8,8 @@
     <AssemblyVersion>2.0.20168.4</AssemblyVersion>
     <MicrosoftDotNetGenAPIPackageVersion>1.0.0-beta.18578.2</MicrosoftDotNetGenAPIPackageVersion>
     <NugetPackageVersion Condition="'$(NugetPackageVersion)' == ''">2.1.0-dev</NugetPackageVersion>
+		<!-- Encryption SDK NuGet version -->
+		<EncryptionSdkNugetPackageVersion Condition="'$(EncryptionSdkNugetPackageVersion)' == ''">1.0.0-dev</EncryptionSdkNugetPackageVersion>
     <Version>$(NugetPackageVersion)</Version>
   </PropertyGroup>
   <!-- NetFx project dependencies -->

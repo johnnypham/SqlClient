@@ -5,7 +5,9 @@
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
+using Microsoft.Data.Encryption.Cryptography;
 
 namespace Microsoft.Data.SqlClient
 {
@@ -19,10 +21,12 @@ namespace Microsoft.Data.SqlClient
 
         private SqlClientEncryptionAlgorithmFactoryList()
         {
-            _encryptionAlgoFactoryList = new ConcurrentDictionary<string, SqlClientEncryptionAlgorithmFactory>(concurrencyLevel: 4 * Environment.ProcessorCount /* default value in ConcurrentDictionary*/, capacity: 2);
+            _encryptionAlgoFactoryList = new ConcurrentDictionary<string, SqlClientEncryptionAlgorithmFactory>(
+                concurrencyLevel: 4 * Environment.ProcessorCount, // default value in ConcurrentDictionary
+                capacity: 2);
 
             // Add wellknown algorithm
-            _encryptionAlgoFactoryList.TryAdd(SqlAeadAes256CbcHmac256Algorithm.AlgorithmName, new SqlAeadAes256CbcHmac256Factory());
+            _encryptionAlgoFactoryList.TryAdd(SqlAeadAes256CbcHmac256Factory.AlgorithmName, new SqlAeadAes256CbcHmac256Factory());
         }
 
         internal static SqlClientEncryptionAlgorithmFactoryList GetInstance()
@@ -63,22 +67,18 @@ namespace Microsoft.Data.SqlClient
         /// <param name="type"></param>
         /// <param name="algorithmName"></param>
         /// <param name="encryptionAlgorithm"></param>
-        internal void GetAlgorithm(SqlClientSymmetricKey key, byte type, string algorithmName, out SqlClientEncryptionAlgorithm encryptionAlgorithm)
+        internal void GetAlgorithm(DataEncryptionKey key, byte type, string algorithmName, out AeadAes256CbcHmac256EncryptionAlgorithm encryptionAlgorithm)
         {
-            encryptionAlgorithm = null;
-
-            SqlClientEncryptionAlgorithmFactory factory = null;
-            if (!_encryptionAlgoFactoryList.TryGetValue(algorithmName, out factory))
+            if (!_encryptionAlgoFactoryList.TryGetValue(algorithmName, out SqlClientEncryptionAlgorithmFactory factory))
             {
-                throw SQL.UnknownColumnEncryptionAlgorithm(algorithmName,
-                        SqlClientEncryptionAlgorithmFactoryList.GetInstance().GetRegisteredCipherAlgorithmNames());
+                throw SQL.UnknownColumnEncryptionAlgorithm(algorithmName, _singletonInstance.GetRegisteredCipherAlgorithmNames());
             }
 
             Debug.Assert(null != factory, "Null Algorithm Factory class detected");
 
             // If the factory exists, following method will Create an algorithm object. If this fails,
             // it will raise an exception.
-            encryptionAlgorithm = factory.Create(key, (SqlClientEncryptionType)type, algorithmName);
+            encryptionAlgorithm = factory.GetOrCreate(key, (EncryptionType)type, algorithmName);
         }
     }
 }

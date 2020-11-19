@@ -172,6 +172,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Data.SqlClient.Te
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Data.SqlClient.ExtUtilities", "Microsoft.Data.SqlClient\tests\tools\Microsoft.Data.SqlClient.ExtUtilities\Microsoft.Data.SqlClient.ExtUtilities.csproj", "{E4C08DCE-DC29-4FEB-B655-1E7287DB5A2B}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cryptography", "Microsoft.Data.Encryption\Cryptography\Cryptography.csproj", "{B3687A12-5262-4F64-9F96-B334AED59821}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -1132,6 +1134,54 @@ Global
 		{E4C08DCE-DC29-4FEB-B655-1E7287DB5A2B}.Release|x64.Build.0 = Release|Any CPU
 		{E4C08DCE-DC29-4FEB-B655-1E7287DB5A2B}.Release|x86.ActiveCfg = Release|Any CPU
 		{E4C08DCE-DC29-4FEB-B655-1E7287DB5A2B}.Release|x86.Build.0 = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.Debug|x64.Build.0 = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.Debug|x86.Build.0 = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.net46-Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.net46-Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.net46-Debug|x64.ActiveCfg = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.net46-Debug|x64.Build.0 = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.net46-Debug|x86.ActiveCfg = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.net46-Debug|x86.Build.0 = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.net46-Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.net46-Release|Any CPU.Build.0 = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.net46-Release|x64.ActiveCfg = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.net46-Release|x64.Build.0 = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.net46-Release|x86.ActiveCfg = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.net46-Release|x86.Build.0 = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp2.1-Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp2.1-Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp2.1-Debug|x64.ActiveCfg = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp2.1-Debug|x64.Build.0 = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp2.1-Debug|x86.ActiveCfg = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp2.1-Debug|x86.Build.0 = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp2.1-Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp2.1-Release|Any CPU.Build.0 = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp2.1-Release|x64.ActiveCfg = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp2.1-Release|x64.Build.0 = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp2.1-Release|x86.ActiveCfg = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp2.1-Release|x86.Build.0 = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp3.1-Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp3.1-Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp3.1-Debug|x64.ActiveCfg = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp3.1-Debug|x64.Build.0 = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp3.1-Debug|x86.ActiveCfg = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp3.1-Debug|x86.Build.0 = Debug|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp3.1-Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp3.1-Release|Any CPU.Build.0 = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp3.1-Release|x64.ActiveCfg = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp3.1-Release|x64.Build.0 = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp3.1-Release|x86.ActiveCfg = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.netcoreapp3.1-Release|x86.Build.0 = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.Release|x64.ActiveCfg = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.Release|x64.Build.0 = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.Release|x86.ActiveCfg = Release|Any CPU
+		{B3687A12-5262-4F64-9F96-B334AED59821}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

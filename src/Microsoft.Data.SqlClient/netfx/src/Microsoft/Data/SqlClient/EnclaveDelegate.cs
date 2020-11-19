@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Data.Encryption.Cryptography;
 
 namespace Microsoft.Data.SqlClient
 {
@@ -41,8 +42,9 @@ namespace Microsoft.Data.SqlClient
         /// <param name="queryText"></param>
         /// <param name="enclaveType">enclave type</param>
         /// <param name="enclaveSessionParameters">The set of parameters required for enclave session.</param>
+        /// <param name="connection"></param>
         /// <returns></returns>
-        internal EnclavePackage GenerateEnclavePackage(SqlConnectionAttestationProtocol attestationProtocol, Dictionary<int, SqlTceCipherInfoEntry> keysTobeSentToEnclave, string queryText, string enclaveType, EnclaveSessionParameters enclaveSessionParameters)
+        internal EnclavePackage GenerateEnclavePackage(SqlConnectionAttestationProtocol attestationProtocol, Dictionary<int, SqlTceCipherInfoEntry> keysTobeSentToEnclave, string queryText, string enclaveType, EnclaveSessionParameters enclaveSessionParameters, SqlConnection connection)
         {
 
             SqlEnclaveSession sqlEnclaveSession = null;
@@ -58,7 +60,7 @@ namespace Microsoft.Data.SqlClient
                 throw new RetryableEnclaveQueryExecutionException(e.Message, e);
             }
 
-            List<ColumnEncryptionKeyInfo> decryptedKeysToBeSentToEnclave = GetDecryptedKeysToBeSentToEnclave(keysTobeSentToEnclave, enclaveSessionParameters.ServerName);
+            List<ColumnEncryptionKeyInfo> decryptedKeysToBeSentToEnclave = GetDecryptedKeysToBeSentToEnclave(keysTobeSentToEnclave, enclaveSessionParameters.ServerName, connection);
             byte[] queryStringHashBytes = ComputeQueryStringHash(queryText);
             byte[] keyBytePackage = GenerateBytePackageForKeys(counter, queryStringHashBytes, decryptedKeysToBeSentToEnclave);
             byte[] sessionKey = sqlEnclaveSession.GetSessionKey();
@@ -254,19 +256,20 @@ namespace Microsoft.Data.SqlClient
         /// </summary>
         /// <param name="keysTobeSentToEnclave">Keys that need to sent to the enclave</param>
         /// <param name="serverName"></param>
+        /// <param name="connection"></param>
         /// <returns></returns>
-        private List<ColumnEncryptionKeyInfo> GetDecryptedKeysToBeSentToEnclave(Dictionary<int, SqlTceCipherInfoEntry> keysTobeSentToEnclave, string serverName)
+        private List<ColumnEncryptionKeyInfo> GetDecryptedKeysToBeSentToEnclave(Dictionary<int, SqlTceCipherInfoEntry> keysTobeSentToEnclave, string serverName, SqlConnection connection)
         {
             List<ColumnEncryptionKeyInfo> decryptedKeysToBeSentToEnclave = new List<ColumnEncryptionKeyInfo>();
 
             foreach (SqlTceCipherInfoEntry cipherInfo in keysTobeSentToEnclave.Values)
             {
-                SqlClientSymmetricKey sqlClientSymmetricKey = null;
+                ProtectedDataEncryptionKey encryptionKey;
                 SqlEncryptionKeyInfo? encryptionkeyInfoChosen = null;
-                SqlSecurityUtility.DecryptSymmetricKey(cipherInfo, serverName, out sqlClientSymmetricKey,
-                    out encryptionkeyInfoChosen);
+                SqlSecurityUtility.DecryptSymmetricKey(cipherInfo, serverName, out encryptionKey, out encryptionkeyInfoChosen, connection);
 
-                if (sqlClientSymmetricKey == null)
+
+                if (encryptionKey == null)
                     throw SQL.NullArgumentInternal("sqlClientSymmetricKey", ClassName, GetDecryptedKeysToBeSentToEnclaveName);
                 if (cipherInfo.ColumnEncryptionKeyValues == null)
                     throw SQL.NullArgumentInternal("ColumnEncryptionKeyValues", ClassName, GetDecryptedKeysToBeSentToEnclaveName);
@@ -276,7 +279,8 @@ namespace Microsoft.Data.SqlClient
                 //cipherInfo.CekId is always 0, hence used cipherInfo.ColumnEncryptionKeyValues[0].cekId. Even when cek has multiple ColumnEncryptionKeyValues
                 //the cekid and the plaintext value will remain the same, what varies is the encrypted cek value, since the cek can be encrypted by 
                 //multiple CMKs
-                decryptedKeysToBeSentToEnclave.Add(new ColumnEncryptionKeyInfo(sqlClientSymmetricKey.RootKey,
+                byte[] decryptedKey = encryptionKey.KeyEncryptionKey.DecryptEncryptionKey(encryptionKey.EncryptedValue);
+                decryptedKeysToBeSentToEnclave.Add(new ColumnEncryptionKeyInfo(decryptedKey,
                     cipherInfo.ColumnEncryptionKeyValues[0].databaseId,
                     cipherInfo.ColumnEncryptionKeyValues[0].cekMdVersion, cipherInfo.ColumnEncryptionKeyValues[0].cekId));
             }
@@ -344,11 +348,9 @@ namespace Microsoft.Data.SqlClient
 
             try
             {
-                SqlClientSymmetricKey symmetricKey = new SqlClientSymmetricKey(sessionKey);
-                SqlClientEncryptionAlgorithm sqlClientEncryptionAlgorithm =
-                    SqlAeadAes256CbcHmac256Factory.Create(symmetricKey, SqlClientEncryptionType.Randomized,
-                        SqlAeadAes256CbcHmac256Algorithm.AlgorithmName);
-                return sqlClientEncryptionAlgorithm.EncryptData(bytePackage);
+                PlaintextDataEncryptionKey encryptionKey = PlaintextDataEncryptionKey.GetOrCreate(serverName, sessionKey);
+                AeadAes256CbcHmac256EncryptionAlgorithm encryptionAlgorithm = AeadAes256CbcHmac256EncryptionAlgorithm.GetOrCreate(encryptionKey, EncryptionType.Randomized);
+                return encryptionAlgorithm.Encrypt(bytePackage);
             }
             catch (Exception e)
             {

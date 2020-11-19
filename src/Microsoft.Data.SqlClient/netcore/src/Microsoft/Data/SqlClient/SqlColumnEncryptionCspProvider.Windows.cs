@@ -6,17 +6,17 @@ using System;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Data.Encryption.Cryptography;
 using Microsoft.Win32;
 
 namespace Microsoft.Data.SqlClient
 {
 
     /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient/SqlColumnEncryptionCspProvider.xml' path='docs/members[@name="SqlColumnEncryptionCspProvider"]/SqlColumnEncryptionCspProvider/*' />
-    public class SqlColumnEncryptionCspProvider : SqlColumnEncryptionKeyStoreProvider
+    public class SqlColumnEncryptionCspProvider : EncryptionKeyStoreProvider
     {
-
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient/SqlColumnEncryptionCspProvider.xml' path='docs/members[@name="SqlColumnEncryptionCspProvider"]/ProviderName/*' />
-        public const string ProviderName = @"MSSQL_CSP_PROVIDER";
+        public override string ProviderName { get; } = @"MSSQL_CSP_PROVIDER";
 
         /// <summary>
         /// RSA_OAEP is the only algorithm supported for encrypting/decrypting column encryption keys using this provider.
@@ -34,8 +34,12 @@ namespace Microsoft.Data.SqlClient
         /// </summary>
         private readonly byte[] _version = new byte[] { 0x01 };
 
+#pragma warning disable CS1572 // XML comment has a param tag, but there is no parameter by that name
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient/SqlColumnEncryptionCspProvider.xml' path='docs/members[@name="SqlColumnEncryptionCspProvider"]/DecryptColumnEncryptionKey/*' />
-        public override byte[] DecryptColumnEncryptionKey(string masterKeyPath, string encryptionAlgorithm, byte[] encryptedColumnEncryptionKey)
+#pragma warning disable CS1573 // Parameter has no matching param tag in the XML comment (but other parameters do)
+        public override byte[] UnwrapKey(string masterKeyPath, KeyEncryptionKeyAlgorithm algorithm, byte[] encryptedColumnEncryptionKey)
+#pragma warning restore CS1573 // Parameter has no matching param tag in the XML comment (but other parameters do)
+#pragma warning restore CS1572 // XML comment has a param tag, but there is no parameter by that name
         {
             // Validate the input parameters
             ValidateNonEmptyCSPKeyPath(masterKeyPath, isSystemOp: true);
@@ -51,7 +55,7 @@ namespace Microsoft.Data.SqlClient
             }
 
             // Validate encryptionAlgorithm
-            ValidateEncryptionAlgorithm(encryptionAlgorithm, isSystemOp: true);
+            ValidateEncryptionAlgorithm(algorithm, isSystemOp: true);
 
             // Create RSA Provider with the given CSP name and key name
             RSACryptoServiceProvider rsaProvider = CreateRSACryptoProvider(masterKeyPath, isSystemOp: true);
@@ -128,8 +132,13 @@ namespace Microsoft.Data.SqlClient
             return RSADecrypt(rsaProvider, cipherText);
         }
 
+
+#pragma warning disable CS1572 // XML comment has a param tag, but there is no parameter by that name
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient/SqlColumnEncryptionCspProvider.xml' path='docs/members[@name="SqlColumnEncryptionCspProvider"]/EncryptColumnEncryptionKey/*' />
-        public override byte[] EncryptColumnEncryptionKey(string masterKeyPath, string encryptionAlgorithm, byte[] columnEncryptionKey)
+#pragma warning disable CS1573 // Parameter has no matching param tag in the XML comment (but other parameters do)
+        public override byte[] WrapKey(string masterKeyPath, KeyEncryptionKeyAlgorithm algorithm, byte[] columnEncryptionKey)
+#pragma warning restore CS1572 // XML comment has a param tag, but there is no parameter by that name
+#pragma warning restore CS1573 // Parameter has no matching param tag in the XML comment (but other parameters do)
         {
             // Validate the input parameters
             ValidateNonEmptyCSPKeyPath(masterKeyPath, isSystemOp: false);
@@ -144,7 +153,7 @@ namespace Microsoft.Data.SqlClient
             }
 
             // Validate encryptionAlgorithm
-            ValidateEncryptionAlgorithm(encryptionAlgorithm, isSystemOp: false);
+            ValidateEncryptionAlgorithm(algorithm, isSystemOp: false);
 
             // Create RSA Provider with the given CSP name and key name
             RSACryptoServiceProvider rsaProvider = CreateRSACryptoProvider(masterKeyPath, isSystemOp: false);
@@ -219,13 +228,13 @@ namespace Microsoft.Data.SqlClient
         }
 
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient/SqlColumnEncryptionCspProvider.xml' path='docs/members[@name="SqlColumnEncryptionCspProvider"]/SignColumnMasterKeyMetadata/*' />
-        public override byte[] SignColumnMasterKeyMetadata(string masterKeyPath, bool allowEnclaveComputations)
+        public override byte[] Sign(string masterKeyPath, bool allowEnclaveComputations)
         {
             throw new NotSupportedException();
         }
 
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient/SqlColumnEncryptionCspProvider.xml' path='docs/members[@name="SqlColumnEncryptionCspProvider"]/VerifyColumnMasterKeyMetadata/*' />
-        public override bool VerifyColumnMasterKeyMetadata(string masterKeyPath, bool allowEnclaveComputations, byte[] signature)
+        public override bool Verify(string masterKeyPath, bool allowEnclaveComputations, byte[] signature)
         {
             throw new NotSupportedException();
         }
@@ -234,22 +243,15 @@ namespace Microsoft.Data.SqlClient
         /// This function validates that the encryption algorithm is RSA_OAEP and if it is not,
         /// then throws an exception
         /// </summary>
-        /// <param name="encryptionAlgorithm">Asymmetric key encryption algorithm</param>
+        /// <param name="algorithm">Asymmetric key encryption algorithm</param>
         /// <param name="isSystemOp">Indicates if ADO.NET calls or the customer calls the API</param>
-        private void ValidateEncryptionAlgorithm(string encryptionAlgorithm, bool isSystemOp)
+        private void ValidateEncryptionAlgorithm(KeyEncryptionKeyAlgorithm algorithm, bool isSystemOp)
         {
-            // This validates that the encryption algorithm is RSA_OAEP
-            if (null == encryptionAlgorithm)
+            if (algorithm != KeyEncryptionKeyAlgorithm.RSA_OAEP)
             {
-                throw SQL.NullKeyEncryptionAlgorithm(isSystemOp);
-            }
-
-            if (string.Equals(encryptionAlgorithm, RSAEncryptionAlgorithmWithOAEP, StringComparison.OrdinalIgnoreCase) != true)
-            {
-                throw SQL.InvalidKeyEncryptionAlgorithm(encryptionAlgorithm, RSAEncryptionAlgorithmWithOAEP, isSystemOp);
+                throw SQL.InvalidKeyEncryptionAlgorithm(algorithm.ToString("F"), RSAEncryptionAlgorithmWithOAEP, isSystemOp);
             }
         }
-
 
         /// <summary>
         /// Checks if the CSP key path is Empty or Null (and raises exception if they are).

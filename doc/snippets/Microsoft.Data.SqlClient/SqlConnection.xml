@@ -1035,7 +1035,7 @@ GO
  ]]></format>
             </remarks>
         </PacketSize>
-        <RegisterColumnEncryptionKeyStoreProviders>
+        <RegisterColumnEncryptionKeyStoreProviders name="SqlColumnEncryptionKeyStoreProviderDictionary">
             <param name="customProviders">Custom column encryption key provider dictionary</param>
             <summary>Registers the column encryption key store providers. This function should only be called once in an app. This does shallow copying of the dictionary so that the app cannot alter the custom provider list once it has been set.</summary>
             <remarks>
@@ -1049,7 +1049,63 @@ GO
  ```
   ]]></format>
             </remarks>
+						<exception cref="T:System.ArgumentNullException">
+							A null dictionary was provided.
+
+							-or-
+
+							A string key in the dictionary was null or empty.
+
+							-or-
+
+							A <see cref="T:Microsoft.Data.SqlClient.SqlColumnEncryptionKeyStoreProvider" /> value in the dictionary was null.
+						</exception>
+						<exception cref="T:System.ArgumentException">
+							A string key in the dictionary started with "MSSQL_". This prefix is reserved for system providers.
+						</exception>
+					<exception cref="T:System.InvalidOperationException">
+						This function was called more than once.
+					</exception>
         </RegisterColumnEncryptionKeyStoreProviders>
+				<RegisterColumnEncryptionKeyStoreProviders name="EncryptionKeyStoreProviderDictionary">
+						<param name="customProviders">Custom encryption key provider list</param>
+						<summary>Registers the encryption key store providers. This function should only be called once in an app. This does shallow copying of the dictionary so that the app cannot alter the custom provider list once it has been set.</summary>
+						<exception cref="T:System.ArgumentNullException">
+								A null dictionary was provided.
+
+								-or-
+
+								A string key in the dictionary was null or empty.
+
+								-or-
+
+								An EncryptionKeyStoreProvider value in the dictionary was null.
+							</exception>
+							<exception cref="T:System.ArgumentException">
+								A string key in the dictionary started with "MSSQL_". This prefix is reserved for system providers.
+							</exception>
+						<exception cref="T:System.InvalidOperationException">
+							This function was called more than once.
+						</exception>
+				</RegisterColumnEncryptionKeyStoreProviders>
+				<RegisterColumnEncryptionKeyStoreProvidersOnConnection>
+						<param name="customProviders">Custom encryption key provider list</param>
+						<summary>Registers the encryption key store providers on the <see cref="T:Microsoft.Data.SqlClient.SqlConnection" /> instance. If this function has been called, any providers registered using the static <see cref="T:Microsoft.Data.SqlClient.SqlConnection.RegisterColumnEncryptionKeyStoreProviders" /> methods will be ignored. This function can be called more than once. This does shallow copying of the dictionary so that the app cannot alter the custom provider list once it has been set.</summary>
+						<exception cref="T:System.ArgumentNullException">
+								A null dictionary was provided.
+
+								-or-
+
+								A string key in the dictionary was null or empty.
+
+								-or-
+
+								An EncryptionKeyStoreProvider value in the dictionary was null.
+							</exception>
+							<exception cref="T:System.ArgumentException">
+								A string key in the dictionary started with "MSSQL_". This prefix is reserved for system providers.
+							</exception>
+				</RegisterColumnEncryptionKeyStoreProvidersOnConnection>
         <ResetStatistics>
             <summary>If statistics gathering is enabled, all values are reset to zero.</summary>
             <remarks>

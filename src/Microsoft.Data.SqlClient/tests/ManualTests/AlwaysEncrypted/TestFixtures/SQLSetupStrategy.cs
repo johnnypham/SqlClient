@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
+using Microsoft.Data.Encryption.Cryptography;
 using Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted.Setup;
 using Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted.TestFixtures.Setup;
 
@@ -24,6 +25,7 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted
         public Table End2EndSmokeTable { get; private set; }
         public Table TrustedMasterKeyPathsTestTable { get; private set; }
         public Table SqlNullValuesTable { get; private set; }
+        public Table CustomKeyStoreProviderTestTable { get; private set; }
         public Table TabIntSource { get; private set; }
         public Table TabTinyIntTarget { get; private set; }
         public Table TabIntSourceDirect { get; private set; }
@@ -57,6 +59,7 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted
         public SQLSetupStrategy()
         {
             certificate = CertificateUtility.CreateCertificate();
+            keyPath = string.Concat(StoreLocation.CurrentUser.ToString(), "/", StoreName.My.ToString(), "/", certificate.Thumbprint);
         }
 
         protected SQLSetupStrategy(string customKeyPath) => keyPath = customKeyPath;
@@ -94,7 +97,7 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted
             }
         }
 
-        protected List<ColumnEncryptionKey> CreateColumnEncryptionKeys(ColumnMasterKey columnMasterKey, int count, SqlColumnEncryptionKeyStoreProvider columnEncryptionKeyStoreProvider)
+        protected List<ColumnEncryptionKey> CreateColumnEncryptionKeys(ColumnMasterKey columnMasterKey, int count, EncryptionKeyStoreProvider columnEncryptionKeyStoreProvider)
         {
             List<ColumnEncryptionKey> columnEncryptionKeys = new List<ColumnEncryptionKey>();
 
@@ -131,6 +134,10 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted
 
             SqlNullValuesTable = new SqlNullValuesTable(GenerateUniqueName("SqlNullValuesTable"), columnEncryptionKeys[0]);
             tables.Add(SqlNullValuesTable);
+
+            // columnEncryptionKeys[2] is a CEK protected by DummyMasterKey
+            CustomKeyStoreProviderTestTable = new ApiTestTable(GenerateUniqueName("CustomKeyStoreProviderTestTable"), columnEncryptionKeys[2], columnEncryptionKeys[0]);
+            tables.Add(CustomKeyStoreProviderTestTable);
 
             TabNVarCharMaxSource = new BulkCopyTruncationTables(GenerateUniqueName("TabNVarCharMaxSource"), columnEncryptionKeys[0]);
             tables.Add(TabNVarCharMaxSource);

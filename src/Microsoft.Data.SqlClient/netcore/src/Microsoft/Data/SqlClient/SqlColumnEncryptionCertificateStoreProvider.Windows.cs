@@ -7,11 +7,12 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using Microsoft.Data.Encryption.Cryptography;
 
 namespace Microsoft.Data.SqlClient
 {
     /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient/SqlColumnEncryptionCertificateStoreProvider.xml' path='docs/members[@name="SqlColumnEncryptionCertificateStoreProvider"]/SqlColumnEncryptionCertificateStoreProvider/*' />
-    public class SqlColumnEncryptionCertificateStoreProvider : SqlColumnEncryptionKeyStoreProvider
+    public class SqlColumnEncryptionCertificateStoreProvider : EncryptionKeyStoreProvider
     {
         // Constants
         //
@@ -19,7 +20,7 @@ namespace Microsoft.Data.SqlClient
         // Certificate provider name (CertificateStore) dont need to be localized.
 
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient/SqlColumnEncryptionCertificateStoreProvider.xml' path='docs/members[@name="SqlColumnEncryptionCertificateStoreProvider"]/ProviderName/*' />
-        public const string ProviderName = @"MSSQL_CERTIFICATE_STORE";
+        public override string ProviderName { get; } = @"MSSQL_CERTIFICATE_STORE";
 
         /// <summary>
         /// RSA_OAEP is the only algorithm supported for encrypting/decrypting column encryption keys.
@@ -56,8 +57,13 @@ namespace Microsoft.Data.SqlClient
         /// </summary>
         private readonly byte[] _version = new byte[] { 0x01 };
 
+
+#pragma warning disable CS1572 // XML comment has a param tag, but there is no parameter by that name
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient/SqlColumnEncryptionCertificateStoreProvider.xml' path='docs/members[@name="SqlColumnEncryptionCertificateStoreProvider"]/DecryptColumnEncryptionKey/*' />
-        public override byte[] DecryptColumnEncryptionKey(string masterKeyPath, string encryptionAlgorithm, byte[] encryptedColumnEncryptionKey)
+#pragma warning disable CS1573 // Parameter has no matching param tag in the XML comment (but other parameters do)
+        public override byte[] UnwrapKey(string masterKeyPath, KeyEncryptionKeyAlgorithm algorithm, byte[] encryptedColumnEncryptionKey)
+#pragma warning restore CS1573 // Parameter has no matching param tag in the XML comment (but other parameters do)
+#pragma warning restore CS1572 // XML comment has a param tag, but there is no parameter by that name
         {
             // Validate the input parameters
             ValidateNonEmptyCertificatePath(masterKeyPath, isSystemOp: true);
@@ -72,86 +78,98 @@ namespace Microsoft.Data.SqlClient
             }
 
             // Validate encryptionAlgorithm
-            ValidateEncryptionAlgorithm(encryptionAlgorithm, isSystemOp: true);
+            ValidateEncryptionAlgorithm(algorithm, isSystemOp: true);
 
             // Validate key path length
             ValidateCertificatePathLength(masterKeyPath, isSystemOp: true);
 
-            // Parse the path and get the X509 cert
-            X509Certificate2 certificate = GetCertificateByPath(masterKeyPath, isSystemOp: true);
-            int keySizeInBytes = certificate.PublicKey.Key.KeySize / 8;
+            // get the decrypted key from the cache or create it if it doesn't exist
+            return GetOrCreateDataEncryptionKey(encryptedColumnEncryptionKey.ToHexString(), DecryptEncryptionKey);
 
-            // Validate and decrypt the EncryptedColumnEncryptionKey
-            // Format is 
-            //           version + keyPathLength + ciphertextLength + keyPath + ciphertext +  signature
-            //
-            // keyPath is present in the encrypted column encryption key for identifying the original source of the asymmetric key pair and 
-            // we will not validate it against the data contained in the CMK metadata (masterKeyPath).
-
-            // Validate the version byte
-            if (encryptedColumnEncryptionKey[0] != _version[0])
+            byte[] DecryptEncryptionKey()
             {
-                throw SQL.InvalidAlgorithmVersionInEncryptedCEK(encryptedColumnEncryptionKey[0], _version[0]);
+                // Parse the path and get the X509 cert
+                X509Certificate2 certificate = GetCertificateByPath(masterKeyPath, isSystemOp: true);
+                int keySizeInBytes = certificate.PublicKey.Key.KeySize / 8;
+
+                // Validate and decrypt the EncryptedColumnEncryptionKey
+                // Format is 
+                //           version + keyPathLength + ciphertextLength + keyPath + ciphertext +  signature
+                //
+                // keyPath is present in the encrypted column encryption key for identifying the original 
+                // source of the asymmetric key pair and will not validate it against the data contained in 
+                // the CMK metadata (masterKeyPath).
+
+                // Validate the version byte
+                if (encryptedColumnEncryptionKey[0] != _version[0])
+                {
+                    throw SQL.InvalidAlgorithmVersionInEncryptedCEK(encryptedColumnEncryptionKey[0], _version[0]);
+                }
+
+                // Get key path length
+                int currentIndex = _version.Length;
+                Int16 keyPathLength = BitConverter.ToInt16(encryptedColumnEncryptionKey, currentIndex);
+                currentIndex += sizeof(Int16);
+
+                // Get ciphertext length
+                int cipherTextLength = BitConverter.ToInt16(encryptedColumnEncryptionKey, currentIndex);
+                currentIndex += sizeof(Int16);
+
+                // Skip KeyPath
+                // KeyPath exists only for troubleshooting purposes and doesnt need validation.
+                currentIndex += keyPathLength;
+
+                // validate the ciphertext length
+                if (cipherTextLength != keySizeInBytes)
+                {
+                    throw SQL.InvalidCiphertextLengthInEncryptedCEK(cipherTextLength, keySizeInBytes, masterKeyPath);
+                }
+
+                // Validate the signature length
+                // Signature length should be same as the key side for RSA PKCSv1.5
+                int signatureLength = encryptedColumnEncryptionKey.Length - currentIndex - cipherTextLength;
+                if (signatureLength != keySizeInBytes)
+                {
+                    throw SQL.InvalidSignatureInEncryptedCEK(signatureLength, keySizeInBytes, masterKeyPath);
+                }
+
+                // Get ciphertext
+                byte[] cipherText = new byte[cipherTextLength];
+                Buffer.BlockCopy(encryptedColumnEncryptionKey, currentIndex, cipherText, 0, cipherText.Length);
+                currentIndex += cipherTextLength;
+
+                // Get signature
+                byte[] signature = new byte[signatureLength];
+                Buffer.BlockCopy(encryptedColumnEncryptionKey, currentIndex, signature, 0, signature.Length);
+
+                // Compute the hash to validate the signature
+                byte[] hash;
+                using (SHA256 sha256 = SHA256.Create())
+                {
+                    sha256.TransformFinalBlock(encryptedColumnEncryptionKey, 0, encryptedColumnEncryptionKey.Length - signature.Length);
+                    hash = sha256.Hash;
+                }
+
+                Debug.Assert(hash != null, @"hash should not be null while decrypting encrypted column encryption key.");
+
+                // Validate the signature
+                if (!RSAVerifySignature(hash, signature, certificate))
+                {
+                    throw SQL.InvalidCertificateSignature(masterKeyPath);
+                }
+
+                // Decrypt the CEK
+                return RSADecrypt(cipherText, certificate);
             }
-
-            // Get key path length
-            int currentIndex = _version.Length;
-            Int16 keyPathLength = BitConverter.ToInt16(encryptedColumnEncryptionKey, currentIndex);
-            currentIndex += sizeof(Int16);
-
-            // Get ciphertext length
-            int cipherTextLength = BitConverter.ToInt16(encryptedColumnEncryptionKey, currentIndex);
-            currentIndex += sizeof(Int16);
-
-            // Skip KeyPath
-            // KeyPath exists only for troubleshooting purposes and doesnt need validation.
-            currentIndex += keyPathLength;
-
-            // validate the ciphertext length
-            if (cipherTextLength != keySizeInBytes)
-            {
-                throw SQL.InvalidCiphertextLengthInEncryptedCEK(cipherTextLength, keySizeInBytes, masterKeyPath);
-            }
-
-            // Validate the signature length
-            // Signature length should be same as the key side for RSA PKCSv1.5
-            int signatureLength = encryptedColumnEncryptionKey.Length - currentIndex - cipherTextLength;
-            if (signatureLength != keySizeInBytes)
-            {
-                throw SQL.InvalidSignatureInEncryptedCEK(signatureLength, keySizeInBytes, masterKeyPath);
-            }
-
-            // Get ciphertext
-            byte[] cipherText = new byte[cipherTextLength];
-            Buffer.BlockCopy(encryptedColumnEncryptionKey, currentIndex, cipherText, 0, cipherText.Length);
-            currentIndex += cipherTextLength;
-
-            // Get signature
-            byte[] signature = new byte[signatureLength];
-            Buffer.BlockCopy(encryptedColumnEncryptionKey, currentIndex, signature, 0, signature.Length);
-
-            // Compute the hash to validate the signature
-            byte[] hash;
-            using (SHA256 sha256 = SHA256.Create())
-            {
-                sha256.TransformFinalBlock(encryptedColumnEncryptionKey, 0, encryptedColumnEncryptionKey.Length - signature.Length);
-                hash = sha256.Hash;
-            }
-
-            Debug.Assert(hash != null, @"hash should not be null while decrypting encrypted column encryption key.");
-
-            // Validate the signature
-            if (!RSAVerifySignature(hash, signature, certificate))
-            {
-                throw SQL.InvalidCertificateSignature(masterKeyPath);
-            }
-
-            // Decrypt the CEK
-            return RSADecrypt(cipherText, certificate);
         }
 
+
+#pragma warning disable CS1572 // XML comment has a param tag, but there is no parameter by that name
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient/SqlColumnEncryptionCertificateStoreProvider.xml' path='docs/members[@name="SqlColumnEncryptionCertificateStoreProvider"]/EncryptColumnEncryptionKey/*' />
-        public override byte[] EncryptColumnEncryptionKey(string masterKeyPath, string encryptionAlgorithm, byte[] columnEncryptionKey)
+#pragma warning disable CS1573 // Parameter has no matching param tag in the XML comment (but other parameters do)
+        public override byte[] WrapKey(string masterKeyPath, KeyEncryptionKeyAlgorithm algorithm, byte[] columnEncryptionKey)
+#pragma warning restore CS1573 // Parameter has no matching param tag in the XML comment (but other parameters do)
+#pragma warning restore CS1572 // XML comment has a param tag, but there is no parameter by that name
         {
             // Validate the input parameters
             ValidateNonEmptyCertificatePath(masterKeyPath, isSystemOp: false);
@@ -165,7 +183,7 @@ namespace Microsoft.Data.SqlClient
             }
 
             // Validate encryptionAlgorithm
-            ValidateEncryptionAlgorithm(encryptionAlgorithm, isSystemOp: false);
+            ValidateEncryptionAlgorithm(algorithm, isSystemOp: false);
 
             // Validate masterKeyPath Length
             ValidateCertificatePathLength(masterKeyPath, isSystemOp: false);
@@ -241,7 +259,7 @@ namespace Microsoft.Data.SqlClient
         }
 
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient/SqlColumnEncryptionCertificateStoreProvider.xml' path='docs/members[@name="SqlColumnEncryptionCertificateStoreProvider"]/SignColumnMasterKeyMetadata/*' />
-        public override byte[] SignColumnMasterKeyMetadata(string masterKeyPath, bool allowEnclaveComputations)
+        public override byte[] Sign(string masterKeyPath, bool allowEnclaveComputations)
         {
             var hash = ComputeMasterKeyMetadataHash(masterKeyPath, allowEnclaveComputations, isSystemOp: false);
 
@@ -254,15 +272,23 @@ namespace Microsoft.Data.SqlClient
         }
 
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient/SqlColumnEncryptionCertificateStoreProvider.xml' path='docs/members[@name="SqlColumnEncryptionCertificateStoreProvider"]/VerifyColumnMasterKeyMetadata/*' />
-        public override bool VerifyColumnMasterKeyMetadata(string masterKeyPath, bool allowEnclaveComputations, byte[] signature)
+        public override bool Verify(string masterKeyPath, bool allowEnclaveComputations, byte[] signature)
         {
-            var hash = ComputeMasterKeyMetadataHash(masterKeyPath, allowEnclaveComputations, isSystemOp: true);
+            var cacheKey = Tuple.Create(ProviderName, masterKeyPath, allowEnclaveComputations, signature.ToHexString());
 
-            // Parse the certificate path and get the X509 cert
-            X509Certificate2 certificate = GetCertificateByPath(masterKeyPath, isSystemOp: true);
+            // get the signature verification result from the cache or create it if it doesn't exist
+            return GetOrCreateSignatureVerificationResult(cacheKey, VerifyMasterKeyMetadata);
 
-            // Validate the signature
-            return RSAVerifySignature(hash, signature, certificate);
+            bool VerifyMasterKeyMetadata()
+            {
+                var hash = ComputeMasterKeyMetadataHash(masterKeyPath, allowEnclaveComputations, isSystemOp: true);
+
+                // Parse the certificate path and get the X509 cert
+                X509Certificate2 certificate = GetCertificateByPath(masterKeyPath, isSystemOp: true);
+
+                // Validate the signature
+                return RSAVerifySignature(hash, signature, certificate);
+            }
         }
 
         private byte[] ComputeMasterKeyMetadataHash(string masterKeyPath, bool allowEnclaveComputations, bool isSystemOp)
@@ -293,17 +319,12 @@ namespace Microsoft.Data.SqlClient
         /// </summary>
         /// <param name="encryptionAlgorithm">Asymmetric key encryption algorithm</param>
         /// <param name="isSystemOp"></param>
-        private void ValidateEncryptionAlgorithm(string encryptionAlgorithm, bool isSystemOp)
+        private void ValidateEncryptionAlgorithm(KeyEncryptionKeyAlgorithm encryptionAlgorithm, bool isSystemOp)
         {
             // This validates that the encryption algorithm is RSA_OAEP
-            if (null == encryptionAlgorithm)
+            if (encryptionAlgorithm != KeyEncryptionKeyAlgorithm.RSA_OAEP)
             {
-                throw SQL.NullKeyEncryptionAlgorithm(isSystemOp);
-            }
-
-            if (string.Equals(encryptionAlgorithm, RSAEncryptionAlgorithmWithOAEP, StringComparison.OrdinalIgnoreCase) != true)
-            {
-                throw SQL.InvalidKeyEncryptionAlgorithm(encryptionAlgorithm, RSAEncryptionAlgorithmWithOAEP, isSystemOp);
+                throw SQL.InvalidKeyEncryptionAlgorithm(encryptionAlgorithm.ToString("F"), RSAEncryptionAlgorithmWithOAEP, isSystemOp);
             }
         }
 

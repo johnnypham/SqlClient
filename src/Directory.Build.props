@@ -34,6 +34,7 @@
     <NetCoreSource>$(ManagedSourceCode)netcore\</NetCoreSource>
     <NetFxSource>$(ManagedSourceCode)netfx\</NetFxSource>
     <NetFxResources>$(ManagedSourceCode)netfx\src\Resources\</NetFxResources>
+    <EncryptionSDK>$(ProjectDir)Microsoft.Data.Encryption\</EncryptionSDK>
     <AddOnsPath>$(ManagedSourceCode)add-ons\</AddOnsPath>
     <ObjFolder>$(Artifacts)obj\</ObjFolder>
     <CommonPath>$(NetCoreSource)src\Common\src</CommonPath>

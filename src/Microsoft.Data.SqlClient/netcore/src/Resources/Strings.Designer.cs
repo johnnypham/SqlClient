@@ -5218,6 +5218,15 @@ namespace System {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Column encryption key store provider list cannot be null. Expecting a non-null value..
+        /// </summary>
+        internal static string TCE_NullCustomKeyStoreProviderList {
+            get {
+                return ResourceManager.GetString("TCE_NullCustomKeyStoreProviderList", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Internal Error. Enclave package is null during execution of an enclave based query. Enclave type is &apos;{0}&apos; and enclaveAttestationUrl is &apos;{1}&apos;..
         /// </summary>
         internal static string TCE_NullEnclavePackageForEnclaveBasedQuery {
@@ -5349,6 +5358,15 @@ namespace System {
         internal static string TCE_ProcEncryptionMetaDataMissing {
             get {
                 return ResourceManager.GetString("TCE_ProcEncryptionMetaDataMissing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to To register a custom key store provider for a user, a connection must be opened with a User ID and Authentication method specified..
+        /// </summary>
+        internal static string TCE_RegisterUserKeyStoreProviderWithoutAuthenticating {
+            get {
+                return ResourceManager.GetString("TCE_RegisterUserKeyStoreProviderWithoutAuthenticating", resourceCulture);
             }
         }
         

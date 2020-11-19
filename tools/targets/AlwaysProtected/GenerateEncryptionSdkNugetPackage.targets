@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+	<Target Name="GenerateEncryptionSdkNugetPackage" Condition="'$(GenerateNuget)' == 'true'">
+		<PropertyGroup>
+			<EncryptionSdkNugetPackageVersion Condition="'$(Configuration)' == 'Debug'">$(EncryptionSdkNugetPackageVersion)-debug</EncryptionSdkNugetPackageVersion>
+		</PropertyGroup>
+		<Message Text="Setting EncryptionSdkNugetPackageVersion to $(EncryptionSdkNugetPackageVersion)" />
+		<Exec Command="dotnet pack $(EncryptionSDK)Cryptography\Cryptography.csproj -p:PackageVersion=$(EncryptionSdkNugetPackageVersion) --output $(PackagesDir) --configuration $(Configuration)" />
+	</Target>
+</Project>

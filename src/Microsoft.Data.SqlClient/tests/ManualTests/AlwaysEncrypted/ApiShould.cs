@@ -10,6 +10,8 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Data.Encryption.Cryptography;
+using Microsoft.Data.SqlClient.AlwaysEncrypted.AzureKeyVaultProvider;
 using Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted.Setup;
 using Microsoft.Data.SqlClient.ManualTesting.Tests.SystemDataInternals;
 using Xunit;
@@ -24,11 +26,13 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted
         private SQLSetupStrategy fixture;
 
         private readonly string tableName;
+        private readonly string customKeyStoreProviderTableName;
 
         public ApiShould(PlatformSpecificTestContext context)
         {
             fixture = context.Fixture;
             tableName = fixture.ApiTestTable.Name;
+            customKeyStoreProviderTableName = fixture.CustomKeyStoreProviderTestTable.Name;
         }
 
         [ConditionalTheory(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringSetupForAE))]
@@ -2114,6 +2118,100 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted
             }
         }
 
+        [ConditionalTheory(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringSetupForAE))]
+        [ClassData(typeof(AEConnectionStringProvider))]
+        public void TestCustomKeyStoreProviderRegistration(string connectionString)
+        {
+            if (!SQLSetupStrategyAzureKeyVault.isAKVProviderRegistered)
+            {
+                SqlColumnEncryptionAzureKeyVaultProvider sqlColumnEncryptionAzureKeyVaultProvider =
+                    new SqlColumnEncryptionAzureKeyVaultProvider(AADUtility.AzureActiveDirectoryAuthenticationCallback);
+
+                DummyEncryptionKeyStoreProvider dummyProvider = new DummyEncryptionKeyStoreProvider();
+
+                // Register AKV provider and dummy provider
+                SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customProviders:
+                    new Dictionary<string, EncryptionKeyStoreProvider>(capacity: 2, comparer: StringComparer.OrdinalIgnoreCase)
+                    {
+                        { "AZURE_KEY_VAULT", sqlColumnEncryptionAzureKeyVaultProvider},
+                        { "DummyProvider", dummyProvider}
+                    });
+
+                SQLSetupStrategyAzureKeyVault.isAKVProviderRegistered = true;
+            }
+
+            // provider required by the query
+            Dictionary<string, EncryptionKeyStoreProvider> customProviders1 =
+                new Dictionary<string, EncryptionKeyStoreProvider>()
+                {
+                    { "DummyProvider", new DummyEncryptionKeyStoreProvider() }
+                };
+
+            // not required by the query
+            Dictionary<string, EncryptionKeyStoreProvider> customProviders2 =
+                new Dictionary<string, EncryptionKeyStoreProvider>()
+                {
+                    { "DummyProvider2", new DummyEncryptionKeyStoreProvider2() }
+                };
+
+            string dummyProviderThrowsExceptionExpectedMessage = "Unable to verify a column master key signature. Error " +
+                "message: The method or operation is not implemented.";
+            string providerNotFoundExpectedMessage = "Invalid key store provider name: 'DummyProvider'. A key store " +
+                "provider name must denote either a system key store provider or a registered custom key store provider." +
+                " Valid system key store provider names are: 'MSSQL_CERTIFICATE_STORE', 'MSSQL_CNG_STORE', " +
+                "'MSSQL_CSP_PROVIDER'. Valid (currently registered) custom key store provider names are: 'DummyProvider2'.";
+
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+
+                // will use DummyProvider in global cache
+                // provider will be found but it will throw when its methods are called
+                Exception ex = Assert.Throws<InvalidOperationException>(
+                      () => ExecuteQueryThatRequiresCustomKeyStoreProvider(connection));
+                Assert.Contains(dummyProviderThrowsExceptionExpectedMessage, ex.Message);
+
+                // register wrong provider in per-connection cache
+                // it should not fall back to the global cache so the right provider will not be found
+                connection.RegisterColumnEncryptionKeyStoreProvidersOnConnection(customProviders2);
+                ex = Assert.Throws<InvalidOperationException>(
+                     () => ExecuteQueryThatRequiresCustomKeyStoreProvider(connection));
+                Assert.Contains(providerNotFoundExpectedMessage, ex.Message);
+
+                // register right provider in per-connection cache
+                // if the per-connection cache is not empty, it is always checked for the provider.
+                // if the provider is not found, an exception will be thrown and the global cache is not checked.
+                // => if the provider is found, it must have been retrieved from the per-connection cache
+                // and not the global cache
+                connection.RegisterColumnEncryptionKeyStoreProvidersOnConnection(customProviders1);
+                ex = Assert.Throws<InvalidOperationException>(
+                    () => ExecuteQueryThatRequiresCustomKeyStoreProvider(connection));
+                Assert.Contains(dummyProviderThrowsExceptionExpectedMessage, ex.Message);
+
+                // re-register wrong provider in per-connection cache
+                // it should replace the previous entry so DummyProvider will not be found 
+                connection.RegisterColumnEncryptionKeyStoreProvidersOnConnection(customProviders2);
+                ex = Assert.Throws<InvalidOperationException>(
+                    () => ExecuteQueryThatRequiresCustomKeyStoreProvider(connection));
+                Assert.Contains(providerNotFoundExpectedMessage, ex.Message);
+            }
+        }
+
+        // tries to retrieve data from the CustomKeyStoreProviderTestTable, where the CustomerID column 
+        // requires a CMK from an invalid custom key store provider (DummyProvider), so this query should 
+        // always fail
+        private void ExecuteQueryThatRequiresCustomKeyStoreProvider(SqlConnection connection)
+        {
+            using (SqlCommand command = new SqlCommand(
+                null, connection, null, SqlCommandColumnEncryptionSetting.Enabled))
+            {
+                command.CommandText = $"SELECT * FROM [{customKeyStoreProviderTableName}] " +
+                                      $"WHERE CustomerID > @id";
+                command.Parameters.AddWithValue(@"id", 9);
+                command.ExecuteReader();
+            }
+        }
+
         private SqlDataAdapter CreateSqlDataAdapter(SqlConnection sqlConnection)
         {
             // Create a SqlDataAdapter.
@@ -2600,7 +2698,7 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted
             {
                 foreach (Exception ex in aggregateException.InnerExceptions)
                 {
-                    Assert.True(ex is SqlException, @"cancelling a command through cancellation token resulted in unexpected exception.");
+                    Assert.True(ex is SqlException, $@"cancelling a command through cancellation token resulted in unexpected exception.");
                     Assert.True(@"Operation cancelled by user." == ex.Message, @"cancelling a command through cancellation token resulted in unexpected error message.");
                 }
             }

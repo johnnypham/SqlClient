@@ -12,7 +12,9 @@ using System.Security.Cryptography.X509Certificates;
 using Microsoft.Azure.KeyVault;
 using Microsoft.Azure.KeyVault.Models;
 using Microsoft.Azure.KeyVault.WebKey;
+using Microsoft.Data.Encryption.Cryptography;
 using Microsoft.Rest.Azure;
+using Xunit;
 
 namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted
 {
@@ -25,20 +27,13 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted
         /// <summary>
         /// System.Data assembly.
         /// </summary>
-        public static Assembly systemData = Assembly.GetAssembly(typeof(SqlConnection));
-        public static Type sqlClientSymmetricKey = systemData.GetType("Microsoft.Data.SqlClient.SqlClientSymmetricKey");
-        public static ConstructorInfo sqlColumnEncryptionKeyConstructor = sqlClientSymmetricKey.GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance, null, new Type[] { typeof(byte[]) }, null);
-        public static Type sqlAeadAes256CbcHmac256Factory = systemData.GetType("Microsoft.Data.SqlClient.SqlAeadAes256CbcHmac256Factory");
-        public static MethodInfo sqlAeadAes256CbcHmac256FactoryCreate = sqlAeadAes256CbcHmac256Factory.GetMethod("Create", BindingFlags.Instance | BindingFlags.NonPublic);
-        public static Type sqlClientEncryptionAlgorithm = systemData.GetType("Microsoft.Data.SqlClient.SqlClientEncryptionAlgorithm");
-        public static MethodInfo sqlClientEncryptionAlgorithmEncryptData = sqlClientEncryptionAlgorithm.GetMethod("EncryptData", BindingFlags.Instance | BindingFlags.NonPublic);
-        public static Type SqlColumnEncryptionCertificateStoreProvider = systemData.GetType("Microsoft.Data.SqlClient.SqlColumnEncryptionCertificateStoreProvider");
+        public static Assembly MicrosoftDataSqlClient = Assembly.GetAssembly(typeof(SqlConnection));
+        public static Assembly MicrosoftDataAlwaysProtected = Assembly.GetAssembly(typeof(DataEncryptionKey));
+        public static Type sqlAeadAes256CbcHmac256Factory = MicrosoftDataSqlClient.GetType("Microsoft.Data.SqlClient.SqlAeadAes256CbcHmac256Factory");
+        public static MethodInfo sqlAeadAes256CbcHmac256FactoryGetOrCreate = sqlAeadAes256CbcHmac256Factory.GetMethod("GetOrCreate", BindingFlags.Instance | BindingFlags.NonPublic);
+        public static Type SqlColumnEncryptionCertificateStoreProvider = MicrosoftDataSqlClient.GetType("Microsoft.Data.SqlClient.SqlColumnEncryptionCertificateStoreProvider");
         public static MethodInfo SqlColumnEncryptionCertificateStoreProviderRSADecrypt = SqlColumnEncryptionCertificateStoreProvider.GetMethod("RSADecrypt", BindingFlags.Instance | BindingFlags.NonPublic);
         public static MethodInfo SqlColumnEncryptionCertificateStoreProviderRSAVerifySignature = SqlColumnEncryptionCertificateStoreProvider.GetMethod("RSAVerifySignature", BindingFlags.Instance | BindingFlags.NonPublic);
-        public static MethodInfo sqlClientEncryptionAlgorithmDecryptData = sqlClientEncryptionAlgorithm.GetMethod("DecryptData", BindingFlags.Instance | BindingFlags.NonPublic);
-        public static Type SqlSymmetricKeyCache = systemData.GetType("Microsoft.Data.SqlClient.SqlSymmetricKeyCache");
-        public static MethodInfo SqlSymmetricKeyCacheGetInstance = SqlSymmetricKeyCache.GetMethod("GetInstance", BindingFlags.Static | BindingFlags.NonPublic);
-        public static FieldInfo SqlSymmetricKeyCacheFieldCache = SqlSymmetricKeyCache.GetField("_cache", BindingFlags.Instance | BindingFlags.NonPublic);
 
         /// <summary>
         /// ECEK Corruption types (useful for testing)
@@ -66,27 +61,25 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted
         /// </summary>
         /// <param name="plainTextData"></param>
         /// <returns></returns>
-        internal static byte[] EncryptDataUsingAED(byte[] plainTextData, byte[] key, CColumnEncryptionType encryptionType)
+        internal static byte[] EncryptDataUsingAED(byte[] plainTextData, byte[] encryptedCek, CColumnEncryptionType encryptionType, string masterKeyPath, EncryptionKeyStoreProvider provider)
         {
             Debug.Assert(plainTextData != null);
-            Debug.Assert(key != null && key.Length > 0);
+            Debug.Assert(encryptedCek != null && encryptedCek.Length > 0);
             byte[] encryptedData = null;
 
-            Object columnEncryptionKey = sqlColumnEncryptionKeyConstructor.Invoke(new object[] { key });
+            KeyEncryptionKey masterKey = KeyEncryptionKey.GetOrCreate("CMK1", masterKeyPath, provider);
+            ProtectedDataEncryptionKey columnEncryptionKey = ProtectedDataEncryptionKey.GetOrCreate("CEK1", masterKey, encryptedCek);
             Debug.Assert(columnEncryptionKey != null);
 
             Object aesFactory = Activator.CreateInstance(sqlAeadAes256CbcHmac256Factory);
             Debug.Assert(aesFactory != null);
 
             object[] parameters = new object[] { columnEncryptionKey, encryptionType, SQLSetupStrategy.ColumnEncryptionAlgorithmName };
-            Object authenticatedAES = sqlAeadAes256CbcHmac256FactoryCreate.Invoke(aesFactory, parameters);
+            AeadAes256CbcHmac256EncryptionAlgorithm authenticatedAES = 
+                sqlAeadAes256CbcHmac256FactoryGetOrCreate.Invoke(aesFactory, parameters) as AeadAes256CbcHmac256EncryptionAlgorithm;
             Debug.Assert(authenticatedAES != null);
 
-            parameters = new object[] { plainTextData };
-            Object finalCellBlob = sqlClientEncryptionAlgorithmEncryptData.Invoke(authenticatedAES, parameters);
-            Debug.Assert(finalCellBlob != null);
-
-            encryptedData = (byte[])finalCellBlob;
+            encryptedData = authenticatedAES.Encrypt(plainTextData);
 
             return encryptedData;
         }
@@ -94,16 +87,41 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted
         /// <summary>
         /// Through reflection, clear the SqlClient cache
         /// </summary>
-        internal static void CleanSqlClientCache()
-        {
-            object sqlSymmetricKeyCache = SqlSymmetricKeyCacheGetInstance.Invoke(null, null);
-            MemoryCache cache = SqlSymmetricKeyCacheFieldCache.GetValue(sqlSymmetricKeyCache) as MemoryCache;
+        //internal static void CleanSqlClientCache()
+        //{
+        //    // EncryptionKey type
+        //    Type EncryptionKeyType = MicrosoftDataAlwaysProtected.GetType("Microsoft.Data.AlwaysProtected.Cryptography.EncryptionKey");
+        //    Assert.NotNull(EncryptionKeyType);
 
-            foreach (KeyValuePair<String, object> item in cache)
-            {
-                cache.Remove(item.Key);
-            }
-        }
+        //    // static encryptionKeyCache field of the EncryptionKey class
+        //    FieldInfo encryptionKeyCacheField =
+        //        EncryptionKeyType.GetField("encryptionKeyCache", BindingFlags.Static | BindingFlags.NonPublic);
+        //    Assert.NotNull(encryptionKeyCacheField);
+
+        //    // reference to the static encryptionKeyCache instance of the EncryptionKey class
+        //    LocalCache<(string, KeyEncryptionKey, string), DataEncryptionKey> staticEncryptionKeyCacheInstance =
+        //        encryptionKeyCacheField.GetValue(null) as LocalCache<(string, KeyEncryptionKey, string), DataEncryptionKey>;
+        //    Assert.NotNull(staticEncryptionKeyCacheInstance);
+
+        //    // LocalCache<(string, MasterKey, string), EncryptionKey> type
+        //    Type EncryptionKeyCacheType = MicrosoftDataAlwaysProtected.GetType("Microsoft.Data.AlwaysProtected.Cryptography.LocalCache`2").
+        //        MakeGenericType(typeof((string, MasterKey, string)), typeof(EncryptionKey));
+        //    Assert.NotNull(EncryptionKeyCacheType);
+
+        //    // the encapsulated MemoryCache field of the LocalCache class
+        //    FieldInfo memoryCacheFieldOfLocalCache =
+        //        EncryptionKeyCacheType.GetField("cache", BindingFlags.Instance | BindingFlags.NonPublic);
+        //    Assert.NotNull(memoryCacheFieldOfLocalCache);
+
+        //    // reference to the memory cache instance of the static encryptionKeyCache
+        //    MemoryCache encryptionKeyMemoryCacheInstance = memoryCacheFieldOfLocalCache.GetValue(staticEncryptionKeyCacheInstance) as MemoryCache;
+        //    Assert.NotNull(encryptionKeyMemoryCacheInstance);
+
+        //    foreach (KeyValuePair<String, object> item in encryptionKeyMemoryCacheInstance)
+        //    {
+        //        encryptionKeyMemoryCacheInstance.Remove(item.Key);
+        //    }
+        //}
 
         /// <summary>
         /// Create a self-signed certificate.
@@ -233,28 +251,27 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted
         /// <summary>
         /// Decrypt Data using AEAD
         /// </summary>
-        internal static byte[] DecryptDataUsingAED(byte[] encryptedCellBlob, byte[] key, CColumnEncryptionType encryptionType)
+        internal static byte[] DecryptDataUsingAED(byte[] encryptedCellBlob, byte[] encryptedCek, CColumnEncryptionType encryptionType, string masterKeyPath, EncryptionKeyStoreProvider keyStoreProvider)
         {
             Debug.Assert(encryptedCellBlob != null && encryptedCellBlob.Length > 0);
-            Debug.Assert(key != null && key.Length > 0);
+            Debug.Assert(encryptedCek != null && encryptedCek.Length > 0);
 
             byte[] decryptedData = null;
 
-            Object columnEncryptionKey = sqlColumnEncryptionKeyConstructor.Invoke(new object[] { key });
+            KeyEncryptionKey masterKey = KeyEncryptionKey.GetOrCreate("MK1", masterKeyPath, keyStoreProvider);
+            ProtectedDataEncryptionKey columnEncryptionKey = ProtectedDataEncryptionKey.GetOrCreate("CEK1", masterKey, encryptedCek);
             Debug.Assert(columnEncryptionKey != null);
 
             Object aesFactory = Activator.CreateInstance(sqlAeadAes256CbcHmac256Factory);
             Debug.Assert(aesFactory != null);
 
             object[] parameters = new object[] { columnEncryptionKey, encryptionType, SQLSetupStrategy.ColumnEncryptionAlgorithmName };
-            Object authenticatedAES = sqlAeadAes256CbcHmac256FactoryCreate.Invoke(aesFactory, parameters);
+            AeadAes256CbcHmac256EncryptionAlgorithm authenticatedAES = 
+                sqlAeadAes256CbcHmac256FactoryGetOrCreate.Invoke(aesFactory, parameters) as AeadAes256CbcHmac256EncryptionAlgorithm;
             Debug.Assert(authenticatedAES != null);
 
-            parameters = new object[] { encryptedCellBlob };
-            Object decryptedValue = sqlClientEncryptionAlgorithmDecryptData.Invoke(authenticatedAES, parameters);
-            Debug.Assert(decryptedValue != null);
-
-            decryptedData = (byte[])decryptedValue;
+            decryptedData = authenticatedAES.Decrypt(encryptedCellBlob);
+            Debug.Assert(decryptedData != null);
 
             return decryptedData;
         }

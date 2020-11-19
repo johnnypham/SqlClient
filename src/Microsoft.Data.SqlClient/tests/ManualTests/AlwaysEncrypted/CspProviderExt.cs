@@ -5,6 +5,7 @@
 using System;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
+using Microsoft.Data.Encryption.Cryptography;
 using Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted.Setup;
 using Xunit;
 
@@ -129,12 +130,12 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted
                 SqlColumnEncryptionCspProvider cspProvider = new SqlColumnEncryptionCspProvider();
                 byte[] columnEncryptionKey = DatabaseHelper.GenerateRandomBytes(32);
 
-                byte[] encryptedColumnEncryptionKeyUsingCert = certProvider.EncryptColumnEncryptionKey(certificatePath, @"RSA_OAEP", columnEncryptionKey);
-                byte[] columnEncryptionKeyReturnedCert2CSP = cspProvider.DecryptColumnEncryptionKey(cspPath, @"RSA_OAEP", encryptedColumnEncryptionKeyUsingCert);
+                byte[] encryptedColumnEncryptionKeyUsingCert = certProvider.WrapKey(certificatePath, KeyEncryptionKeyAlgorithm.RSA_OAEP, columnEncryptionKey);
+                byte[] columnEncryptionKeyReturnedCert2CSP = cspProvider.UnwrapKey(cspPath, KeyEncryptionKeyAlgorithm.RSA_OAEP, encryptedColumnEncryptionKeyUsingCert);
                 Assert.True(columnEncryptionKey.SequenceEqual(columnEncryptionKeyReturnedCert2CSP));
 
-                byte[] encryptedColumnEncryptionKeyUsingCSP = cspProvider.EncryptColumnEncryptionKey(cspPath, @"RSA_OAEP", columnEncryptionKey);
-                byte[] columnEncryptionKeyReturnedCSP2Cert = certProvider.DecryptColumnEncryptionKey(certificatePath, @"RSA_OAEP", encryptedColumnEncryptionKeyUsingCSP);
+                byte[] encryptedColumnEncryptionKeyUsingCSP = cspProvider.WrapKey(cspPath, KeyEncryptionKeyAlgorithm.RSA_OAEP, columnEncryptionKey);
+                byte[] columnEncryptionKeyReturnedCSP2Cert = certProvider.UnwrapKey(certificatePath, KeyEncryptionKeyAlgorithm.RSA_OAEP, encryptedColumnEncryptionKeyUsingCSP);
                 Assert.True(columnEncryptionKey.SequenceEqual(columnEncryptionKeyReturnedCSP2Cert));
 
             }
