@@ -24,7 +24,7 @@
   <ItemGroup>
     <NetFxDriver Include="**/netfx/**/Microsoft.Data.SqlClient*.csproj" Condition="'$(IsEnabledWindows)' == 'true'" />
     <NetCoreDriver Include="**/netcore/**/Microsoft.Data.SqlClient*.csproj" />
-    <EncryptionSdk Include="**/Microsoft.Data.Encryption/Cryptography/Cryptography.csproj" />
+    <EncryptionSdk Include="**/Microsoft.Data.Encryption/**/Microsoft.Data.Encryption.csproj" />
     <AKVProvider Include="**/add-ons/**/AzureKeyVaultProvider/*.csproj" />
 
     <FunctionalTests Condition="$(ReferenceType.Contains('NetStandard'))" Include="**/NSLibrary/Microsoft.Data.SqlClient.NSLibrary.csproj" />
@@ -47,9 +47,9 @@
     <ManualTests Include="**/ManualTests/Microsoft.Data.SqlClient.ManualTesting.Tests.csproj" />
 
     <!-- Encryption SDK tests -->
-    <AzureKeyVaultProviderTests Include="**/Microsoft.Data.Encryption/AzureKeyVaultProviderTests/AzureKeyVaultProviderTests.csproj" />
-    <CryptographyTests Include="**/Microsoft.Data.Encryption/CryptographyTests/CryptographyTests.csproj" />
-    <FileEncryptionTests Include="**/Microsoft.Data.Encryption/FileEncryptionTests/FileEncryptionTests.csproj" />
+    <AzureKeyVaultProviderTests Include="**/Microsoft.Data.Encryption/tests/**/Microsoft.Data.Encryption.AzureKeyVaultProvider.Tests.csproj" />
+    <FileEncryptionTests Include="**/Microsoft.Data.Encryption/tests/**/Microsoft.Data.Encryption.FileEncryption.Tests.csproj" />
+    <CryptographyTests Include="**/Microsoft.Data.Encryption/tests/**/Microsoft.Data.Encryption.Tests.csproj" />
   </ItemGroup>
 
   <!-- Top Level Build targets -->

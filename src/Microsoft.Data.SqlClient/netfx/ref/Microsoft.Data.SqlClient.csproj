@@ -19,6 +19,6 @@
     <PackageReference Include="Microsoft.Identity.Client" Version="$(MicrosoftIdentityClientVersion)" />
   </ItemGroup>
 	<ItemGroup>
-		<ProjectReference Include="$(EncryptionSDK)Cryptography\Cryptography.csproj" />
+		<ProjectReference Include="$(EncryptionSDKSourceCode)src\Microsoft\Data\Encryption\Microsoft.Data.Encryption.csproj" />
 	</ItemGroup>
 </Project>

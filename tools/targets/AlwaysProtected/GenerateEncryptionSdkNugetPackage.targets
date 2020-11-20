@@ -5,6 +5,6 @@
 			<EncryptionSdkNugetPackageVersion Condition="'$(Configuration)' == 'Debug'">$(EncryptionSdkNugetPackageVersion)-debug</EncryptionSdkNugetPackageVersion>
 		</PropertyGroup>
 		<Message Text="Setting EncryptionSdkNugetPackageVersion to $(EncryptionSdkNugetPackageVersion)" />
-		<Exec Command="dotnet pack $(EncryptionSDK)Cryptography\Cryptography.csproj -p:PackageVersion=$(EncryptionSdkNugetPackageVersion) --output $(PackagesDir) --configuration $(Configuration)" />
+		<Exec Command="dotnet pack $(EncryptionSDKSourceCode)src\Microsoft\Data\Encryption\Microsoft.Data.Encryption.csproj -p:PackageVersion=$(EncryptionSdkNugetPackageVersion) --output $(PackagesDir) --configuration $(Configuration)" />
 	</Target>
 </Project>

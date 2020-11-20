@@ -298,9 +298,9 @@
     <Compile Include="..\..\src\Microsoft\Data\SqlClient\Server\SmiRecordBuffer.cs">
       <Link>Microsoft\Data\SqlClient\Server\SmiRecordBuffer.cs</Link>
     </Compile>
-		<Compile Include="..\..\src\Microsoft\Data\SqlClient\SqlColumnEncryptionKeyStoreProviderAdapter.cs">
-			<Link>Microsoft\Data\SqlClient\SqlColumnEncryptionKeyStoreProviderAdapter.cs</Link>
-		</Compile>
+    <Compile Include="..\..\src\Microsoft\Data\SqlClient\SqlColumnEncryptionKeyStoreProviderAdapter.cs">
+      <Link>Microsoft\Data\SqlClient\SqlColumnEncryptionKeyStoreProviderAdapter.cs</Link>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Microsoft\Data\Interop\SNINativeManagedWrapperX64.cs" />
@@ -513,9 +513,9 @@
       <Version>$(SystemIOVersion)</Version>
     </PackageReference>
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="$(EncryptionSDK)Cryptography\Cryptography.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="$(EncryptionSDKSourceCode)src\Microsoft\Data\Encryption\Microsoft.Data.Encryption.csproj" />
+	</ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(NetFxSource)tools\targets\GenerateResourceStringsSource.targets" />
   <Import Project="$(NetFxSource)tools\targets\GenerateThisAssemblyCs.targets" />

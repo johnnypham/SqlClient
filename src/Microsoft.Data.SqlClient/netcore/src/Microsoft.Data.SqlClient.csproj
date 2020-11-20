@@ -755,10 +755,9 @@
     <PackageReference Include="System.Buffers" Version="$(SystemBuffersVersion)" />
     <PackageReference Include="System.Runtime.Caching" Version="$(SystemRuntimeCachingVersion)" />
     <PackageReference Include="System.Security.Cryptography.Cng" Version="$(SystemSecurityCryptographyCngVersion)" />
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="$(MicrosoftSourceLinkGitHubVersion)" PrivateAssets="All"/>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="$(EncryptionSDK)Cryptography\Cryptography.csproj" />
+    <ProjectReference Include="$(EncryptionSDKSourceCode)src\Microsoft\Data\Encryption\Microsoft.Data.Encryption.csproj" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Update="Resources\Strings.resx">

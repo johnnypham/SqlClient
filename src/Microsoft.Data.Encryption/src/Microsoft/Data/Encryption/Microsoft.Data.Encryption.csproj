@@ -128,7 +128,7 @@
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="1.1.2" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="System.Text.Encoding.CodePages" Version="4.7.1" />
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="4.7.0" />
   </ItemGroup>
 
 </Project>
