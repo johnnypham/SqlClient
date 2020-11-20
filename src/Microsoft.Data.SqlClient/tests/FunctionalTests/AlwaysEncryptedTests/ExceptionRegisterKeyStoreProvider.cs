@@ -26,9 +26,6 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
             ArgumentNullException e = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customColumnEncryptionKeyStoreProviders));
             Assert.Contains(expectedMessage, e.Message);
 
-            e = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customEncryptionKeyStoreProviders));
-            Assert.Contains(expectedMessage, e.Message);
-
             e = Assert.Throws<ArgumentNullException>(() => connection.RegisterColumnEncryptionKeyStoreProvidersOnConnection(customEncryptionKeyStoreProviders));
             Assert.Contains(expectedMessage, e.Message);
         }
@@ -44,9 +41,6 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
 
             string expectedMessage = "Invalid key store provider name 'MSSQL_DUMMY'. 'MSSQL_' prefix is reserved for system key store providers.";
             ArgumentException e = Assert.Throws<ArgumentException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customColumnEncryptionKeyStoreProviders));
-            Assert.Contains(expectedMessage, e.Message);
-
-            e = Assert.Throws<ArgumentException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customEncryptionKeyStoreProviders));
             Assert.Contains(expectedMessage, e.Message);
 
             e = Assert.Throws<ArgumentException>(() => connection.RegisterColumnEncryptionKeyStoreProvidersOnConnection(customEncryptionKeyStoreProviders));
@@ -66,9 +60,6 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
             ArgumentNullException e = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customColumnEncryptionKeyStoreProviders));
             Assert.Contains(expectedMessage, e.Message);
 
-            e = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customEncryptionKeyStoreProviders));
-            Assert.Contains(expectedMessage, e.Message);
-
             e = Assert.Throws<ArgumentNullException>(() => connection.RegisterColumnEncryptionKeyStoreProvidersOnConnection(customEncryptionKeyStoreProviders));
             Assert.Contains(expectedMessage, e.Message);
         }
@@ -86,9 +77,6 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
             ArgumentNullException e = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customColumnEncryptionKeyStoreProviders));
             Assert.Contains(expectedMessage, e.Message);
 
-            e = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customEncryptionKeyStoreProviders));
-            Assert.Contains(expectedMessage, e.Message);
-
             e = Assert.Throws<ArgumentNullException>(() => connection.RegisterColumnEncryptionKeyStoreProvidersOnConnection(customEncryptionKeyStoreProviders));
             Assert.Contains(expectedMessage, e.Message);
         }
@@ -99,26 +87,14 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
             // Clear out the existing providers (to ensure test-rerunability)
             Utility.ClearSqlConnectionProviders();
             // Verify the provider can be set only once.
-            IDictionary<string, SqlColumnEncryptionKeyStoreProvider> customColumnEncryptionKeyStoreProviders = new Dictionary<string, SqlColumnEncryptionKeyStoreProvider>();
-            IDictionary<string, EncryptionKeyStoreProvider> customEncryptionKeyStoreProviders = new Dictionary<string, EncryptionKeyStoreProvider>();
-            IDictionary<string, EncryptionKeyStoreProvider> customEncryptionKeyStoreProviders2 = new Dictionary<string, EncryptionKeyStoreProvider>();
-
-            customColumnEncryptionKeyStoreProviders.Add("DummyProvider", new DummySqlColumnEncryptionKeyStoreProvider());
-            customEncryptionKeyStoreProviders.Add("DummyProvider", new DummyEncryptionKeyStoreProvider());
-            customEncryptionKeyStoreProviders2.Add("DummyProvider2", new DummyEncryptionKeyStoreProvider());
-
+            IDictionary<string, SqlColumnEncryptionKeyStoreProvider> customProviders = new Dictionary<string, SqlColumnEncryptionKeyStoreProvider>();
+            customProviders = new Dictionary<string, SqlColumnEncryptionKeyStoreProvider>();
+            customProviders.Add(new KeyValuePair<string, SqlColumnEncryptionKeyStoreProvider>(@"DummyProvider", new DummySqlColumnEncryptionKeyStoreProvider()));
+            SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customProviders);
+            InvalidOperationException e = Assert.Throws<InvalidOperationException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customProviders));
             string expectedMessage = "Key store providers cannot be set more than once.";
-            SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customColumnEncryptionKeyStoreProviders);
-            InvalidOperationException e = Assert.Throws<InvalidOperationException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customEncryptionKeyStoreProviders));
-            Assert.Contains(expectedMessage, e.Message);
-
             Utility.ClearSqlConnectionProviders();
-
-            SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customEncryptionKeyStoreProviders);
-            e = Assert.Throws<InvalidOperationException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customColumnEncryptionKeyStoreProviders));
             Assert.Contains(expectedMessage, e.Message);
-
-            Utility.ClearSqlConnectionProviders();
         }
 
         [Fact]
@@ -127,14 +103,21 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
             // Clear out the existing providers (to ensure test-rerunability)
             Utility.ClearSqlConnectionProviders();
 
+            IDictionary<string, SqlColumnEncryptionKeyStoreProvider> singleColumnEncryptionKeyStoreProvider =
+                new Dictionary<string, SqlColumnEncryptionKeyStoreProvider>();
+            IDictionary<string, SqlColumnEncryptionKeyStoreProvider> multipleColumnEncryptionKeyStoreProviders =
+                new Dictionary<string, SqlColumnEncryptionKeyStoreProvider>();
             IDictionary<string, EncryptionKeyStoreProvider> singleEncryptionKeyStoreProvider =
-                new Dictionary<string, EncryptionKeyStoreProvider>();
-            IDictionary<string, EncryptionKeyStoreProvider> multipleCustomEncryptionKeyStoreProviders =
+                new Dictionary<string, EncryptionKeyStoreProvider>();            
+            IDictionary<string, EncryptionKeyStoreProvider> multipleEncryptionKeyStoreProviders =
                 new Dictionary<string, EncryptionKeyStoreProvider>();
 
-            singleEncryptionKeyStoreProvider.Add("DummyProvider1", new DummyEncryptionKeyStoreProvider());
-            multipleCustomEncryptionKeyStoreProviders.Add("DummyProvider2", new DummyEncryptionKeyStoreProvider());
-            multipleCustomEncryptionKeyStoreProviders.Add("DummyProvider3", new DummyEncryptionKeyStoreProvider());
+            singleColumnEncryptionKeyStoreProvider.Add("DummyProvider1", new DummySqlColumnEncryptionKeyStoreProvider());
+            multipleColumnEncryptionKeyStoreProviders.Add("DummyProvider2", new DummySqlColumnEncryptionKeyStoreProvider());
+            multipleColumnEncryptionKeyStoreProviders.Add("DummyProvider3", new DummySqlColumnEncryptionKeyStoreProvider());
+            singleEncryptionKeyStoreProvider.Add("DummyProvider4", new DummyEncryptionKeyStoreProvider());
+            multipleEncryptionKeyStoreProviders.Add("DummyProvider5", new DummyEncryptionKeyStoreProvider());
+            multipleEncryptionKeyStoreProviders.Add("DummyProvider6", new DummyEncryptionKeyStoreProvider());
 
             // calling this method simulates a query that requires a custom key store provider with the given name
             Assembly assembly = Assembly.GetAssembly(typeof(SqlConnection));
@@ -156,7 +139,7 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
                 Assert.Contains(string.Format(providerNotFoundExpectedMessage, ""), e.InnerException.Message);
 
                 // 1 provider in global cache
-                SqlConnection.RegisterColumnEncryptionKeyStoreProviders(singleEncryptionKeyStoreProvider);
+                SqlConnection.RegisterColumnEncryptionKeyStoreProviders(singleColumnEncryptionKeyStoreProvider);
                 e = Assert.Throws<TargetInvocationException>(
                    () => TryGetProviderMethod.Invoke(null, new object[] { "serverName", "keyPath", "CustomProvider", connection }));
                 Assert.Contains(string.Format(providerNotFoundExpectedMessage, "'DummyProvider1'"), e.InnerException.Message);
@@ -164,35 +147,41 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
                 Utility.ClearSqlConnectionProviders();
 
                 // more than 1 provider in global cache
-                SqlConnection.RegisterColumnEncryptionKeyStoreProviders(multipleCustomEncryptionKeyStoreProviders);
+                SqlConnection.RegisterColumnEncryptionKeyStoreProviders(multipleColumnEncryptionKeyStoreProviders);
                 e = Assert.Throws<TargetInvocationException>(
                    () => TryGetProviderMethod.Invoke(null, new object[] { "serverName", "keyPath", "CustomProvider", connection }));
-                Assert.Contains(string.Format(providerNotFoundExpectedMessage, "'DummyProvider2', 'DummyProvider3'"), 
+                Assert.Contains(string.Format(providerNotFoundExpectedMessage, "'DummyProvider2', 'DummyProvider3'"),
                     e.InnerException.Message);
 
                 // register a provider on the connection. error message should not contain the 2 providers in the global cache
                 connection.RegisterColumnEncryptionKeyStoreProvidersOnConnection(singleEncryptionKeyStoreProvider);
                 e = Assert.Throws<TargetInvocationException>(
                     () => TryGetProviderMethod.Invoke(null, new object[] { "serverName", "keyPath", "CustomProvider", connection }));
-                Assert.Contains(string.Format(providerNotFoundExpectedMessage, "'DummyProvider1'"), e.InnerException.Message);
+                Assert.Contains(string.Format(providerNotFoundExpectedMessage, "'DummyProvider4'"), e.InnerException.Message);
 
                 // verify that instance-level providers can be set more than once and that re-registering will 
                 // replace the previous collection
-                FieldInfo field = connection.GetType().GetField("_CustomEncryptionKeyStoreProviders", 
+
+                // get a reference to the internal instance-level cache
+                FieldInfo field = connection.GetType().GetField("_CustomEncryptionKeyStoreProviders",
                     BindingFlags.NonPublic | BindingFlags.Instance);
                 Assert.True(null != field);
-                ReadOnlyDictionary<string, EncryptionKeyStoreProvider> providers = 
+                ReadOnlyDictionary<string, EncryptionKeyStoreProvider> providers =
                     field.GetValue(connection) as ReadOnlyDictionary<string, EncryptionKeyStoreProvider>;
+
                 Assert.True(providers.Count == 1);
-                Assert.True(providers.ContainsKey("DummyProvider1"));
-                connection.RegisterColumnEncryptionKeyStoreProvidersOnConnection(multipleCustomEncryptionKeyStoreProviders);
+                Assert.True(providers.ContainsKey("DummyProvider4"));
+
+                // register a new collection
+                connection.RegisterColumnEncryptionKeyStoreProvidersOnConnection(multipleEncryptionKeyStoreProviders);
                 providers = field.GetValue(connection) as ReadOnlyDictionary<string, EncryptionKeyStoreProvider>;
+
                 Assert.True(providers.Count == 2);
-                Assert.True(providers.ContainsKey("DummyProvider2"));
-                Assert.True(providers.ContainsKey("DummyProvider3"));
+                Assert.True(providers.ContainsKey("DummyProvider5"));
+                Assert.True(providers.ContainsKey("DummyProvider6"));
                 e = Assert.Throws<TargetInvocationException>(
                     () => TryGetProviderMethod.Invoke(null, new object[] { "serverName", "keyPath", "CustomProvider", connection }));
-                Assert.Contains(string.Format(providerNotFoundExpectedMessage, "'DummyProvider2', 'DummyProvider3'"),
+                Assert.Contains(string.Format(providerNotFoundExpectedMessage, "'DummyProvider5', 'DummyProvider6'"),
                     e.InnerException.Message);
             }
         }

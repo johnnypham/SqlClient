@@ -178,10 +178,8 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
                 };
 
             IDictionary<string, SqlColumnEncryptionKeyStoreProvider> customColumnEncryptionKeyStoreProviders = new Dictionary<string, SqlColumnEncryptionKeyStoreProvider>();
-            IDictionary<string, EncryptionKeyStoreProvider> customIEncryptionKeyStoreProviders = new Dictionary<string, EncryptionKeyStoreProvider>();
 
             customColumnEncryptionKeyStoreProviders.Add("DummyProvider", new DummySqlColumnEncryptionKeyStoreProvider());
-            customIEncryptionKeyStoreProviders.Add("DummyProvider", new DummyEncryptionKeyStoreProvider());
             SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customColumnEncryptionKeyStoreProviders);
 
             Object cipherMD = Utility.GetSqlCipherMetadata(0, 1, null, 1, 0x01);
@@ -196,17 +194,6 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
             Assert.Equal(errorMessages[0], encryptEx.InnerException.Message);
 
             Utility.ClearSqlConnectionProviders();
-
-            SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customIEncryptionKeyStoreProviders);
-            Object cipherMD2 = Utility.GetSqlCipherMetadata(0, 1, null, 1, 0x01);
-            Utility.AddEncryptionKeyToCipherMD(cipherMD2, CertFixture.encryptedCek, 0, 0, 0, new byte[] { 0x01, 0x02, 0x03 }, CertFixture.certificatePath, "DummyProvider", "DummyAlgo");
-            cipherText = Utility.EncryptDataUsingAED(plainText, CertFixture.encryptedCek, CColumnEncryptionType.Deterministic, CertFixture.certificatePath, new SqlColumnEncryptionCertificateStoreProvider());
-
-            decryptEx = Assert.Throws<TargetInvocationException>(() => Utility.DecryptWithKey(cipherText, cipherMD, "localhost"));
-            Assert.Equal(errorMessages[0], decryptEx.InnerException.Message);
-
-            encryptEx = Assert.Throws<TargetInvocationException>(() => Utility.EncryptWithKey(plainText, cipherMD, "localhost"));
-            Assert.Equal(errorMessages[0], encryptEx.InnerException.Message);
         }
     }
 

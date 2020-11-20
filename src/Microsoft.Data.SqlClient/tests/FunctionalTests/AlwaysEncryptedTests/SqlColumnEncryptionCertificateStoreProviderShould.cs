@@ -347,8 +347,6 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
             IDictionary<string, EncryptionKeyStoreProvider> customEncryptionKeyStoreProviders = null;
             ArgumentException e1 = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customColumnEncryptionKeyStoreProviders));
             Assert.Contains(expectedMessage1, e1.Message);
-            e1 = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customEncryptionKeyStoreProviders));
-            Assert.Contains(expectedMessage1, e1.Message);
             e1 = Assert.Throws<ArgumentNullException>(() => connection.RegisterColumnEncryptionKeyStoreProvidersOnConnection(customEncryptionKeyStoreProviders));
             Assert.Contains(expectedMessage1, e1.Message);
 
@@ -362,8 +360,6 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
             string expectedMessage2 = "Null reference specified for key store provider '{0}'. Expecting a non-null value.";
             ArgumentNullException e2 = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customColumnEncryptionKeyStoreProviders));
             Assert.Contains(string.Format(expectedMessage2, "CustomProvider"), e2.Message);
-            e2 = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customEncryptionKeyStoreProviders));
-            Assert.Contains(string.Format(expectedMessage2, "CustomProvider"), e2.Message);     
             e2 = Assert.Throws<ArgumentNullException>(() => connection.RegisterColumnEncryptionKeyStoreProvidersOnConnection(customEncryptionKeyStoreProviders));
             Assert.Contains(string.Format(expectedMessage2, "CustomProvider"), e2.Message);
             customColumnEncryptionKeyStoreProviders.Remove(@"CustomProvider");
@@ -374,8 +370,6 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
             customEncryptionKeyStoreProviders.Add("", new DummyEncryptionKeyStoreProvider());
             string expectedMessage3 = "Invalid key store provider name specified. Key store provider names cannot be null or empty";
             ArgumentNullException e3 = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customColumnEncryptionKeyStoreProviders));
-            Assert.Contains(expectedMessage3, e3.Message);
-            e3 = Assert.Throws<ArgumentNullException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customEncryptionKeyStoreProviders));
             Assert.Contains(expectedMessage3, e3.Message);
             e3 = Assert.Throws<ArgumentNullException>(() => connection.RegisterColumnEncryptionKeyStoreProvidersOnConnection(customEncryptionKeyStoreProviders));
             Assert.Contains(expectedMessage3, e3.Message);
@@ -389,8 +383,6 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
             string expectedMessage4 = "Invalid key store provider name 'MSSQL_DUMMY'. 'MSSQL_' prefix is reserved for system key store providers.";
             ArgumentException e4 = Assert.Throws<ArgumentException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customColumnEncryptionKeyStoreProviders));
             Assert.Contains(expectedMessage4, e4.Message);
-            e4 = Assert.Throws<ArgumentException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customEncryptionKeyStoreProviders));
-            Assert.Contains(expectedMessage4, e4.Message);
             e4 = Assert.Throws<ArgumentException>(() => connection.RegisterColumnEncryptionKeyStoreProvidersOnConnection(customEncryptionKeyStoreProviders));
             Assert.Contains(expectedMessage4, e4.Message);
 
@@ -402,8 +394,6 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
             customEncryptionKeyStoreProviders.Add(@"MsSqL_DUMMY", new DummyEncryptionKeyStoreProvider());
             string expectedMessage5 = "Invalid key store provider name 'MsSqL_DUMMY'. 'MSSQL_' prefix is reserved for system key store providers.";
             ArgumentException e5 = Assert.Throws<ArgumentException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customColumnEncryptionKeyStoreProviders));
-            Assert.Contains(expectedMessage5, e5.Message);
-            e5 = Assert.Throws<ArgumentException>(() => SqlConnection.RegisterColumnEncryptionKeyStoreProviders(customEncryptionKeyStoreProviders));
             Assert.Contains(expectedMessage5, e5.Message);
             e5 = Assert.Throws<ArgumentException>(() => connection.RegisterColumnEncryptionKeyStoreProvidersOnConnection(customEncryptionKeyStoreProviders));
             Assert.Contains(expectedMessage5, e5.Message);
