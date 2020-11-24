@@ -1,9 +1,0 @@
-﻿{
-	"AzureClientId": "",
-	"AzureClientSecret": "",
-	"AzureKeyVaultKeyPath1": "",
-	"AzureKeyVaultKeyPath2": "",
-	"AzureTenantId": "",
-	"SqlDatabaseConnectionString": "",
-	"SqlDatabaseConnectionStringAE": ""
-}

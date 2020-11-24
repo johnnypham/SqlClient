@@ -305,12 +305,13 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
 
         internal static byte[] DecryptWithKey(byte[] cipherText, Object cipherMd, string serverName)
         {
-            return (byte[])SqlSecurityUtilDecryptWithKey.Invoke(null, new Object[] { cipherText, cipherMd, serverName, null });
+            Assert.True(SqlSecurityUtilDecryptWithKey != null);
+            return (byte[])SqlSecurityUtilDecryptWithKey.Invoke(null, new Object[] { cipherText, cipherMd, serverName, new SqlConnection() });
         }
 
         internal static byte[] EncryptWithKey(byte[] plainText, Object cipherMd, string serverName)
         {
-            return (byte[])SqlSecurityUtilEncryptWithKey.Invoke(null, new Object[] { plainText, cipherMd, serverName, null });
+            return (byte[])SqlSecurityUtilEncryptWithKey.Invoke(null, new Object[] { plainText, cipherMd, serverName, new SqlConnection() });
         }
 
         /// <summary>

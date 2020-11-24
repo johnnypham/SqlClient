@@ -3,7 +3,6 @@
 
   <Import Project="src/Directory.Build.props" />
   <Import Project="$(ToolsDir)targets\GenerateNugetPackage.targets" />
-  <Import Project="$(ToolsDir)targets\AlwaysProtected\GenerateEncryptionSdkNugetPackage.targets" />
   <Import Project="$(ToolsDir)targets\add-ons\GenerateAKVProviderNugetPackage.targets" />
 
   <PropertyGroup>
@@ -24,7 +23,6 @@
   <ItemGroup>
     <NetFxDriver Include="**/netfx/**/Microsoft.Data.SqlClient*.csproj" Condition="'$(IsEnabledWindows)' == 'true'" />
     <NetCoreDriver Include="**/netcore/**/Microsoft.Data.SqlClient*.csproj" />
-    <EncryptionSdk Include="**/Microsoft.Data.Encryption/**/Microsoft.Data.Encryption.csproj" />
     <AKVProvider Include="**/add-ons/**/AzureKeyVaultProvider/*.csproj" />
 
     <FunctionalTests Condition="$(ReferenceType.Contains('NetStandard'))" Include="**/NSLibrary/Microsoft.Data.SqlClient.NSLibrary.csproj" />
@@ -45,11 +43,6 @@
     <ManualTests Include="**/tools/Microsoft.Data.SqlClient.TestUtilities/Microsoft.Data.SqlClient.TestUtilities.csproj"/>
     <ManualTests Include="**/tools/CoreFx.Private.TestUtilities/CoreFx.Private.TestUtilities.csproj" />
     <ManualTests Include="**/ManualTests/Microsoft.Data.SqlClient.ManualTesting.Tests.csproj" />
-
-    <!-- Encryption SDK tests -->
-    <AzureKeyVaultProviderTests Include="**/Microsoft.Data.Encryption/tests/**/Microsoft.Data.Encryption.AzureKeyVaultProvider.Tests.csproj" />
-    <FileEncryptionTests Include="**/Microsoft.Data.Encryption/tests/**/Microsoft.Data.Encryption.FileEncryption.Tests.csproj" />
-    <CryptographyTests Include="**/Microsoft.Data.Encryption/tests/**/Microsoft.Data.Encryption.Tests.csproj" />
   </ItemGroup>
 
   <!-- Top Level Build targets -->
@@ -77,16 +70,6 @@
     <MSBuild Projects="@(FunctionalTests)" Targets="restore" Properties="TestTargetOS=$(TestOS)netfx" />
   </Target>
 
-	<Target Name="RestoreEncryptionSdk">
-		<MSBuild Projects="@(EncryptionSdk)" Targets="restore" />
-	</Target>
-
-	<Target Name="RestoreTestsEncryptionSdk">
-		<MSBuild Projects="@(AzureKeyVaultProviderTests)" Targets="restore" />
-		<MSBuild Projects="@(CryptographyTests)" Targets="restore" />
-		<MSBuild Projects="@(FileEncryptionTests)" Targets="restore" />
-	</Target>
-
   <Target Name="BuildNetFx" DependsOnTargets="RestoreNetFx" Condition="'$(IsEnabledWindows)' == 'true'">
     <MSBuild Projects="@(NetFxDriver)" Properties="Platform=AnyCPU;$(ProjectProperties)" />
   </Target>
@@ -94,10 +77,6 @@
   <Target Name="BuildNetCore" DependsOnTargets="RestoreNetCore">
     <MSBuild Projects="@(NetCoreDriver)" Properties="Platform=AnyCPU;$(ProjectProperties)" />
   </Target>
-
-	<Target Name="BuildEncryptionSdk" DependsOnTargets="RestoreEncryptionSdk">
-		<MSBuild Projects="@(EncryptionSdk)" Properties="Configuration=$(Configuration);Platform=$(Platform);TargetsWindows=$(TargetsWindows)" />
-	</Target>
 
   <Target Name="BuildNetCoreAllOS" DependsOnTargets="RestoreNetCore">
     <MSBuild Projects="@(NetCoreDriver)" Properties="$(ProjectProperties);Platform=AnyCPU;OSGroup=Unix;" RemoveProperties="TargetsWindows;TargetsUnix;" />
@@ -124,12 +103,6 @@
 	<Target Name="BuildManualTestsNetFx" DependsOnTargets="RestoreTestsNetFx;BuildNetFx" Condition="'$(IsEnabledWindows)' == 'true'">
 		<MSBuild Projects="@(ManualTests)" Properties="TestTargetOS=$(TestOS)netfx;$(TestProjectProperties);Platform=$(Platform);" />
 	</Target>
-
-  <Target Name="BuildEncryptionSdkTests" DependsOnTargets="RestoreTestsEncryptionSdk">
-    <MSBuild Projects="@(AzureKeyVaultProviderTests)" Properties="Configuration=$(Configuration);Platform=$(Platform)" />
-    <MSBuild Projects="@(CryptographyTests)" Properties="Configuration=$(Configuration);Platform=$(Platform)" />
-    <MSBuild Projects="@(FileEncryptionTests)" Properties="Configuration=$(Configuration);Platform=$(Platform)" />
-  </Target>
 
   <Target Name="Clean">
     <RemoveDir Directories='$([System.IO.Directory]::GetDirectories(".","artifacts", SearchOption.AllDirectories))' />

@@ -12970,15 +12970,6 @@ namespace System {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to To register a user-specific key store provider, a connection must be opened with the &apos;Authentication&apos; keyword specified in the connection string..
-        /// </summary>
-        internal static string TCE_RegisterUserKeyStoreProviderWithoutAuthenticating {
-            get {
-                return ResourceManager.GetString("TCE_RegisterUserKeyStoreProviderWithoutAuthenticating", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Retrieving encrypted column &apos;{0}&apos; with {1} is not supported..
         /// </summary>
         internal static string TCE_SequentialAccessNotSupportedOnEncryptedColumn {

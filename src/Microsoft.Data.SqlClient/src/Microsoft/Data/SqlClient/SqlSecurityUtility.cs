@@ -191,12 +191,11 @@ namespace Microsoft.Data.SqlClient
             Debug.Assert(serverName != null, @"serverName should not be null.");
             Debug.Assert(SqlConnection.ColumnEncryptionTrustedMasterKeyPaths != null, @"SqlConnection.ColumnEncryptionTrustedMasterKeyPaths should not be null");
 
-            EncryptionKeyStoreProvider provider = TryGetEncryptionKeyStoreProvider(serverName, keyInfo.keyPath, keyInfo.keyStoreName, connection);
-
             // Lookup the key in cache
             // We will simply bubble up the exception from the DecryptColumnEncryptionKey function.
             try
             {
+                EncryptionKeyStoreProvider provider = TryGetEncryptionKeyStoreProvider(serverName, keyInfo.keyPath, keyInfo.keyStoreName, connection);
                 KeyEncryptionKey masterKey = KeyEncryptionKey.GetOrCreate($"CMK{keyInfo.cekId}", keyInfo.keyPath, provider);
                 encryptionKey = ProtectedDataEncryptionKey.GetOrCreate($"CEK{keyInfo.cekId}", masterKey, keyInfo.encryptedKey);
             }

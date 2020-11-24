@@ -22,12 +22,12 @@ namespace Microsoft.Data.SqlClient
 
         public override byte[] UnwrapKey(string masterKeyPath, KeyEncryptionKeyAlgorithm algorithm, byte[] encryptedColumnEncryptionKey)
         {
-            return _provider.DecryptColumnEncryptionKey(masterKeyPath, algorithm.ToString("F"), encryptedColumnEncryptionKey);
+            return _provider.DecryptColumnEncryptionKey(masterKeyPath, algorithm.ToString(), encryptedColumnEncryptionKey);
         }
 
         public override byte[] WrapKey(string masterKeyPath, KeyEncryptionKeyAlgorithm algorithm, byte[] columnEncryptionKey)
         {
-            return _provider.EncryptColumnEncryptionKey(masterKeyPath, algorithm.ToString("F"), columnEncryptionKey);
+            return _provider.EncryptColumnEncryptionKey(masterKeyPath, algorithm.ToString(), columnEncryptionKey);
         }
 
         public override byte[] Sign(string masterKeyPath, bool allowEnclaveComputations)

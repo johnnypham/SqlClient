@@ -23,14 +23,14 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
         [PlatformSpecific(TestPlatforms.Windows)]
         public void TestNullCEK()
         {
-            KeyEncryptionKey masterKey = KeyEncryptionKey.GetOrCreate("CMK1", CertFixture.certificatePath, CertFixture.provider);
+            KeyEncryptionKey keyEncryptionKey = KeyEncryptionKey.GetOrCreate("CMK1", CertFixture.certificatePath, CertFixture.provider);
 
-            ArgumentException e = Assert.Throws<ArgumentException>(() => ProtectedDataEncryptionKey.GetOrCreate("CEK1", masterKey, new byte[] { }));
+            //ArgumentException e = Assert.Throws<ArgumentException>(() => ProtectedDataEncryptionKey.GetOrCreate("CEK1", keyEncryptionKey, new byte[] { }));
 
-            string expectedMessage = "Internal error. Empty encrypted column encryption key specified.";
-            Assert.Matches(expectedMessage, e.Message);
-            expectedMessage = "Value cannot be null.";
-            e = Assert.Throws<ArgumentNullException>(() => ProtectedDataEncryptionKey.GetOrCreate("CEK1", masterKey, null));
+            string expectedMessage = @"Internal error. Column encryption key cannot be null.\s+\(?Parameter (name: )?'?encryptionKey('\))?";
+            //Assert.Matches(expectedMessage, e.Message);
+
+            ArgumentException e = Assert.Throws<ArgumentNullException>(() => ProtectedDataEncryptionKey.GetOrCreate("CEK1", keyEncryptionKey, null));
             Assert.Matches(expectedMessage, e.Message);
         }
 
@@ -121,6 +121,8 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
             byte[] plainText = Encoding.Unicode.GetBytes("HelloWorld");
             byte[] cipherText = Utility.EncryptDataUsingAED(plainText, CertFixture.encryptedCek, CColumnEncryptionType.Deterministic, CertFixture.certificatePath, new SqlColumnEncryptionCertificateStoreProvider());
 
+            Assert.True(cipherText != null);
+            Assert.True(cipherMD != null);
             Exception decryptEx = Assert.Throws<TargetInvocationException>(() => Utility.DecryptWithKey(cipherText, cipherMD, "localhost"));
             Assert.Contains(errorMessage, decryptEx.InnerException.Message);
 

@@ -313,7 +313,7 @@ namespace Microsoft.Data.SqlClient
             // This validates that the encryption algorithm is RSA_OAEP
             if (encryptionAlgorithm != KeyEncryptionKeyAlgorithm.RSA_OAEP)
             {
-                throw SQL.InvalidKeyEncryptionAlgorithm(encryptionAlgorithm.ToString("F"), RSAEncryptionAlgorithmWithOAEP, isSystemOp);
+                throw SQL.InvalidKeyEncryptionAlgorithm(encryptionAlgorithm.ToString(), RSAEncryptionAlgorithmWithOAEP, isSystemOp);
             }
         }
 

@@ -1468,7 +1468,7 @@ namespace Microsoft.Data.SqlClient
             return ADP.Argument(StringsHelper.GetString(
                                 Strings.TCE_InvalidEncryptionType,
                                 algorithmName,
-                                encryptionType.ToString("F"),
+                                encryptionType.ToString(),
                                 string.Join(valueSeparator, validEncryptionTypes.Select((validEncryptionType => @"'" + validEncryptionType + @"'")))), TdsEnums.TCE_PARAM_ENCRYPTIONTYPE);
         }
 
@@ -1879,11 +1879,6 @@ namespace Microsoft.Data.SqlClient
         static internal Exception EmptyProviderName()
         {
             return ADP.ArgumentNull(TdsEnums.TCE_PARAM_CLIENT_KEYSTORE_PROVIDERS, StringsHelper.GetString(Strings.TCE_EmptyProviderName));
-        }
-
-        static internal Exception RegisterUserKeyStoreProviderWithoutAuthenticating()
-        {
-            return ADP.InvalidOperation(StringsHelper.GetString(Strings.TCE_RegisterUserKeyStoreProviderWithoutAuthenticating));
         }
 
         //

@@ -269,7 +269,7 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted.AzureKeyVaultProvider
             }
 
             // Decrypt the CEK
-            return this.AzureKeyVaultUnWrap(masterKeyPath, algorithm.ToString("F"), cipherText);
+            return this.AzureKeyVaultUnWrap(masterKeyPath, algorithm.ToString(), cipherText);
         }
 
         /// <summary>
@@ -313,7 +313,7 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted.AzureKeyVaultProvider
             byte[] keyPathLength = BitConverter.GetBytes((Int16)masterKeyPathBytes.Length);
 
             // Encrypt the plain text
-            byte[] cipherText = this.AzureKeyVaultWrap(masterKeyPath, algorithm.ToString("F"), columnEncryptionKey);
+            byte[] cipherText = this.AzureKeyVaultWrap(masterKeyPath, algorithm.ToString(), columnEncryptionKey);
             byte[] cipherTextLength = BitConverter.GetBytes((Int16)cipherText.Length);
 
             if (cipherText.Length != keySizeInBytes)
@@ -391,7 +391,7 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted.AzureKeyVaultProvider
         /// <param name="isSystemOp">is the operation a system operation</param>
         private void ValidateEncryptionAlgorithm(ref KeyEncryptionKeyAlgorithm algorithm, bool isSystemOp)
         {
-            string algorithmString = algorithm.ToString("F");
+            string algorithmString = algorithm.ToString();
             // This validates that the encryption algorithm is RSA_OAEP
             if (null == algorithmString)
             {

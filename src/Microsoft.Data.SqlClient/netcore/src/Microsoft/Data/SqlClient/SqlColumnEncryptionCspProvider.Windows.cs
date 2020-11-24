@@ -249,7 +249,7 @@ namespace Microsoft.Data.SqlClient
         {
             if (algorithm != KeyEncryptionKeyAlgorithm.RSA_OAEP)
             {
-                throw SQL.InvalidKeyEncryptionAlgorithm(algorithm.ToString("F"), RSAEncryptionAlgorithmWithOAEP, isSystemOp);
+                throw SQL.InvalidKeyEncryptionAlgorithm(algorithm.ToString(), RSAEncryptionAlgorithmWithOAEP, isSystemOp);
             }
         }
 
