@@ -29,7 +29,7 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
         {
             PlainCancel(np_connStr);
         }
-        
+
         // Synapse: Remove dependency on Northwind database + WAITFOR not supported + ';' not supported
         [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureSynapse))]
         public static void PlainMARSCancelTest()
@@ -246,6 +246,162 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
         {
             CancelFollowedByAlert(np_connStr);
         }
+
+
+
+
+
+        /// /////////////////////////////////////////////////////////////////
+
+        private const string operationCancelledMessage = "The operation was canceled.";
+
+        private static CancellationToken GetCanceledToken()
+        {
+            var cts = new CancellationTokenSource();
+            cts.Cancel();
+            return cts.Token;
+        }
+
+        static readonly CancellationToken s_cancelledToken = GetCanceledToken();
+        static CancellationToken CancelledTokenAfterOneSecond => new CancellationTokenSource(TimeSpan.FromSeconds(1)).Token;
+
+        [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureServer))]
+        public static async Task CancelCommandWithTokenBeforeExecuteNonQuery()
+        {
+            using (SqlConnection conn = new SqlConnection(tcp_connStr))
+            {
+                using (SqlCommand cmd = new SqlCommand("SELECT 1", conn))
+                {
+                    await conn.OpenAsync();
+                    OperationCanceledException ex = await Assert.ThrowsAsync<OperationCanceledException>(
+                        () => cmd.ExecuteNonQueryAsync(s_cancelledToken));
+                    Assert.Contains(operationCancelledMessage, ex.Message);
+                    Assert.Equal(s_cancelledToken, ex.CancellationToken);
+                }
+            }
+        }
+
+        [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureServer))]
+        public static async Task CancelCommandWithTokenBeforeExecuteReader()
+        {
+            using (SqlConnection conn = new SqlConnection(DataTestUtility.TCPConnectionString))
+            {
+                using (SqlCommand cmd = new SqlCommand("SELECT 1", conn))
+                {
+                    await conn.OpenAsync();
+                    OperationCanceledException ex = await Assert.ThrowsAsync<OperationCanceledException>(
+                        () => cmd.ExecuteReaderAsync(s_cancelledToken));
+                    Assert.Contains(operationCancelledMessage, ex.Message);
+                    Assert.Equal(s_cancelledToken, ex.CancellationToken);
+                }
+            }
+        }
+
+        [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureServer))]
+        public static async Task CancelCommandWithTokenBeforeExecuteScalar()
+        {
+            using (SqlConnection conn = new SqlConnection(DataTestUtility.TCPConnectionString))
+            {
+                using (SqlCommand cmd = new SqlCommand("SELECT 1", conn))
+                {
+                    await conn.OpenAsync();
+                    OperationCanceledException ex = await Assert.ThrowsAsync<OperationCanceledException>(
+                        () => cmd.ExecuteScalarAsync(s_cancelledToken));
+                    Assert.Contains(operationCancelledMessage, ex.Message);
+                    Assert.Equal(s_cancelledToken, ex.CancellationToken);
+                }
+            }
+        }
+
+        [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureServer))]
+        public static async Task CancelCommandWithTokenBeforeExecuteXmlReader()
+        {
+            using (SqlConnection conn = new SqlConnection(DataTestUtility.TCPConnectionString))
+            {
+                using (SqlCommand cmd = new SqlCommand("SELECT 1", conn))
+                {
+                    await conn.OpenAsync();
+                    OperationCanceledException ex = await Assert.ThrowsAsync<OperationCanceledException>(
+                        () => cmd.ExecuteXmlReaderAsync(s_cancelledToken));
+                    Assert.Contains(operationCancelledMessage, ex.Message);
+                    Assert.Equal(s_cancelledToken, ex.CancellationToken);
+                }
+            }
+        }
+
+        [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureServer))]
+        public static async Task CancelCommandWithTokenAfterExecuteNonQuery()
+        {
+            using (SqlConnection conn = new SqlConnection(tcp_connStr))
+            {
+                using (SqlCommand cmd = new SqlCommand("waitfor delay '00:00:10'; select * from dbo.Orders", conn))
+                {
+                    CancellationToken cancellationToken = CancelledTokenAfterOneSecond;
+                    await conn.OpenAsync();
+                    OperationCanceledException ex = await Assert.ThrowsAsync<OperationCanceledException>(
+                        () => cmd.ExecuteNonQueryAsync(cancellationToken));
+                    Assert.Contains(operationCancelledMessage, ex.Message);
+                    Assert.Equal(cancellationToken, ex.CancellationToken);
+                }
+            }
+        }
+
+        [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureServer))]
+        public static async Task CancelCommandWithTokenAfterExecuteReader()
+        {
+            using (SqlConnection conn = new SqlConnection(DataTestUtility.TCPConnectionString))
+            {
+                using (SqlCommand cmd = new SqlCommand("waitfor delay '00:00:10'; select * from dbo.Orders", conn))
+                {
+                    CancellationToken cancellationToken = CancelledTokenAfterOneSecond;
+                    await conn.OpenAsync();
+                    OperationCanceledException ex = await Assert.ThrowsAsync<OperationCanceledException>(
+                        () => cmd.ExecuteReaderAsync(cancellationToken));
+                    Assert.Contains(operationCancelledMessage, ex.Message);
+                    Assert.Equal(cancellationToken, ex.CancellationToken);
+                }
+            }
+        }
+
+        [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureServer))]
+        public static async Task CancelCommandWithTokenAfterExecuteScalar()
+        {
+            using (SqlConnection conn = new SqlConnection(DataTestUtility.TCPConnectionString))
+            {
+                using (SqlCommand cmd = new SqlCommand("waitfor delay '00:00:10'; select * from dbo.Orders", conn))
+                {
+                    CancellationToken cancellationToken = CancelledTokenAfterOneSecond;
+                    await conn.OpenAsync();
+                    OperationCanceledException ex = await Assert.ThrowsAsync<OperationCanceledException>(
+                        () => cmd.ExecuteScalarAsync(cancellationToken));
+                    Assert.Contains(operationCancelledMessage, ex.Message);
+                    Assert.Equal(cancellationToken, ex.CancellationToken);
+                }
+            }
+        }
+
+        [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureServer))]
+        public static async Task CancelCommandWithTokenAfterExecuteXmlReader()
+        {
+            using (SqlConnection conn = new SqlConnection(DataTestUtility.TCPConnectionString))
+            {
+                using (SqlCommand cmd = new SqlCommand("waitfor delay '00:00:10'; select * from dbo.Orders", conn))
+                {
+                    CancellationToken cancellationToken = CancelledTokenAfterOneSecond;
+                    await conn.OpenAsync();
+                    OperationCanceledException ex = await Assert.ThrowsAsync<OperationCanceledException>(
+                        () => cmd.ExecuteXmlReaderAsync(cancellationToken));
+                    Assert.Contains(operationCancelledMessage, ex.Message);
+                    Assert.Equal(cancellationToken, ex.CancellationToken);
+                }
+            }
+        }
+
+
+        /// /////////////////////////////////////////////////////////////////
+
+
+
 
         private static void CancelFollowedByTransaction(string constr)
         {
@@ -545,7 +701,7 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                 Exception exception = null;
                 try
                 {
-                    // Cancel after 2 seconds as sometimes total time elapsed can be .99 in case of 1 second that causes random failures
+                    //// Cancel after 2 seconds as sometimes total time elapsed can be .99 in case of 1 second that causes random failures
                     await cmd.ExecuteNonQueryAsync(new CancellationTokenSource(2000).Token);
                 }
                 catch (Exception ex)

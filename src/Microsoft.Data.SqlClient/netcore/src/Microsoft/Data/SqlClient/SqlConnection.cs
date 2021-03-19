@@ -1468,19 +1468,21 @@ namespace Microsoft.Data.SqlClient
 
                     if (cancellationToken.IsCancellationRequested)
                     {
-                        result.SetCanceled();
+                        result.SetException(new OperationCanceledException(cancellationToken));
                         return result.Task;
                     }
 
-
                     bool completed;
-
+                    //jp
                     try
                     {
+                        // tries to get from pool
                         completed = TryOpen(completion);
                     }
                     catch (Exception e)
                     {
+                        //Console.WriteLine("open async - ex thrown during tryopen");//eg if you try to open a connection that is still opened and hasnt been closed yet
+
                         s_diagnosticListener.WriteConnectionOpenError(operationId, this, e);
                         result.SetException(e);
                         return result.Task;
@@ -1488,17 +1490,22 @@ namespace Microsoft.Data.SqlClient
 
                     if (completed)
                     {
+                        //Console.WriteLine("openasync connection completed");// cnxn was fetched from pool
                         result.SetResult(null);
                     }
                     else
                     {
+                        //Console.WriteLine("openasync connection not completed - not in pool");
                         CancellationTokenRegistration registration = new CancellationTokenRegistration();
                         if (cancellationToken.CanBeCanceled)
                         {
+                            //the completion TCS task will to be TrySetCanceled when the cancellation token is canceled
                             registration = cancellationToken.Register(s_openAsyncCancel, completion);
                         }
-                        OpenAsyncRetry retry = new OpenAsyncRetry(this, completion, result, registration);
+                        OpenAsyncRetry retry = new OpenAsyncRetry(this, completion, result, registration, cancellationToken);
                         _currentCompletion = new Tuple<TaskCompletionSource<DbConnectionInternal>, Task>(completion, result.Task);
+                        // completion's task is started in the "completed = TryOpen(completion);" above
+                        //Thread.Sleep(2000);
                         completion.Task.ContinueWith(retry.Retry, TaskScheduler.Default);
                         return result.Task;
                     }
@@ -1567,16 +1574,18 @@ namespace Microsoft.Data.SqlClient
             private TaskCompletionSource<DbConnectionInternal> _retry;
             private TaskCompletionSource<object> _result;
             private CancellationTokenRegistration _registration;
+            private CancellationToken _token;
 
-            public OpenAsyncRetry(SqlConnection parent, TaskCompletionSource<DbConnectionInternal> retry, TaskCompletionSource<object> result, CancellationTokenRegistration registration)
+            public OpenAsyncRetry(SqlConnection parent, TaskCompletionSource<DbConnectionInternal> retry, TaskCompletionSource<object> result, CancellationTokenRegistration registration, CancellationToken token)
             {
                 _parent = parent;
                 _retry = retry;
                 _result = result;
                 _registration = registration;
+                _token = token;
                 SqlClientEventSource.Log.TryTraceEvent("SqlConnection.OpenAsyncRetry | Info | Object Id {0}", _parent?.ObjectID);
             }
-
+            //jp
             internal void Retry(Task<DbConnectionInternal> retryTask)
             {
                 SqlClientEventSource.Log.TryTraceEvent("SqlConnection.Retry | Info | Object Id {0}", _parent?.ObjectID);
@@ -1599,7 +1608,8 @@ namespace Microsoft.Data.SqlClient
                         {
                             _parent.CloseInnerConnection();
                             _parent._currentCompletion = null;
-                            _result.SetCanceled();
+                            _result.SetException(new OperationCanceledException(_token));
+                            //_result.SetCanceled();
                         }
                         else
                         {

@@ -1148,6 +1148,7 @@ namespace Microsoft.Data.SqlClient
             if (_isAsyncBulkCopy && _DbDataReaderRowSource != null)
             {
                 // This will call ReadAsync for DbDataReader (for SqlDataReader it will be truly async read; for non-SqlDataReader it may block.)
+
                 return _DbDataReaderRowSource.ReadAsync(cts).ContinueWith((t) =>
                 {
                     if (t.Status == TaskStatus.RanToCompletion)
@@ -2020,7 +2021,6 @@ namespace Microsoft.Data.SqlClient
                     AsyncHelper.WaitForCompletion(reconnectTask, BulkCopyTimeout, () => { throw SQL.CR_ReconnectTimeout(); }, rethrowExceptions: false);
                 }
             }
-
             bool finishedSynchronously = true;
             _isBulkCopyingInProgress = true;
 
@@ -2430,6 +2430,7 @@ namespace Microsoft.Data.SqlClient
                 {
                     tcs = new TaskCompletionSource<object>();
                 }
+                //tcs.SetException(new OperationCanceledException(cts));
                 tcs.SetCanceled();
                 return tcs.Task;
             }
@@ -2844,11 +2845,13 @@ namespace Microsoft.Data.SqlClient
                                 }
                                 finally
                                 {
+                                    //source.SetException(new OperationCanceledException(cts));
                                     source.SetCanceled();
                                 }
                             }
                             else if (task.Exception != null)
                             {
+                                //source.SetException(new OperationCanceledException(cts));
                                 source.SetException(task.Exception.InnerException);
                             }
                             else
@@ -2864,6 +2867,7 @@ namespace Microsoft.Data.SqlClient
                                     {
                                         if (cts.IsCancellationRequested)
                                         {   // We may get cancellation req even after the entire copy.
+                                            //source.SetException(new OperationCanceledException(cts));
                                             source.SetCanceled();
                                         }
                                         else
@@ -3084,8 +3088,8 @@ namespace Microsoft.Data.SqlClient
 
             try
             {
+                // 
                 Task readTask = ReadFromRowSourceAsync(ctoken); // readTask == reading task. This is the first read call. "more" is valid only if readTask == null;
-
                 if (readTask == null)
                 {   // Synchronously finished reading.
                     if (!_hasMoreRowToCopy)
@@ -3105,7 +3109,7 @@ namespace Microsoft.Data.SqlClient
                 else
                 {
                     Debug.Assert(_isAsyncBulkCopy, "Read must not return a Task in the Sync mode");
-                    AsyncHelper.ContinueTask(readTask, source,
+                    AsyncHelper.ContinueTask(readTask, source, 
                         () =>
                         {
                             if (!_hasMoreRowToCopy)
@@ -3116,7 +3120,7 @@ namespace Microsoft.Data.SqlClient
                             {
                                 WriteToServerInternalRestAsync(ctoken, source); // Passing the same completion which will be completed by the Callee.
                             }
-                        }
+                        }, ctoken
                     );
                     return resultTask;
                 }

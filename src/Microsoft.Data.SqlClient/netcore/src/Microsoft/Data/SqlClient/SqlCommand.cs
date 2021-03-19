@@ -41,21 +41,24 @@ namespace Microsoft.Data.SqlClient
         {
             public Guid OperationID;
             public CommandBehavior CommandBehavior;
+            public CancellationToken CancellationToken;
 
             public SqlCommand Command => _owner;
             public TaskCompletionSource<SqlDataReader> TaskCompletionSource => _source;
 
-            public void Set(SqlCommand command, TaskCompletionSource<SqlDataReader> source, IDisposable disposable, CommandBehavior behavior, Guid operationID)
+            public void Set(SqlCommand command, TaskCompletionSource<SqlDataReader> source, IDisposable disposable, CommandBehavior behavior, Guid operationID, CancellationToken token = default)
             {
                 base.Set(command, source, disposable);
                 CommandBehavior = behavior;
                 OperationID = operationID;
+                CancellationToken = token;
             }
 
             protected override void Clear()
             {
                 OperationID = default;
                 CommandBehavior = default;
+                CancellationToken = default;
             }
 
             protected override void AfterCleared(SqlCommand owner)
@@ -2002,16 +2005,16 @@ namespace Microsoft.Data.SqlClient
             }
         }
 
-        private void CleanupExecuteReaderAsync(Task<SqlDataReader> task, TaskCompletionSource<SqlDataReader> source, Guid operationId)
+        private void CleanupExecuteReaderAsync(Task<SqlDataReader> task, TaskCompletionSource<SqlDataReader> source, Guid operationId, CancellationToken cancellationToken)
         {
             if (task.IsFaulted)
             {
-                Exception e = task.Exception.InnerException;
+                Exception exceptionToBind = ReplaceExceptionIfOperationCancelled(task.Exception.InnerException, cancellationToken);
                 if (!_parentOperationStarted)
                 {
-                    _diagnosticListener.WriteCommandError(operationId, this, _transaction, e);
+                    _diagnosticListener.WriteCommandError(operationId, this, _transaction, exceptionToBind);
                 }
-                source.SetException(e);
+                source.SetException(exceptionToBind);
             }
             else
             {
@@ -2048,9 +2051,10 @@ namespace Microsoft.Data.SqlClient
             SqlCommand command = context.Command;
             Guid operationId = context.OperationID;
             TaskCompletionSource<SqlDataReader> source = context.TaskCompletionSource;
+            CancellationToken cancellationToken = context.CancellationToken;
             context.Dispose();
 
-            command.CleanupExecuteReaderAsync(task, source, operationId);
+            command.CleanupExecuteReaderAsync(task, source, operationId, cancellationToken);
         }
 
         private IAsyncResult BeginExecuteReaderInternal(CommandBehavior behavior, AsyncCallback callback, object stateObject, int timeout, bool inRetry, bool asyncWrite = false)
@@ -2376,7 +2380,7 @@ namespace Microsoft.Data.SqlClient
             Debug.Assert(null == _stateObj, "non-null state object in InternalEndExecuteReader");
             return reader;
         }
-
+        //jp
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient/SqlCommand.xml' path='docs/members[@name="SqlCommand"]/ExecuteNonQueryAsync[@name="CancellationToken"]/*'/>
         public override Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
         {
@@ -2390,7 +2394,7 @@ namespace Microsoft.Data.SqlClient
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    source.SetCanceled();
+                    source.SetException(new OperationCanceledException(cancellationToken));
                     return source.Task;
                 }
                 registration = cancellationToken.Register(s_cancelIgnoreFailure, this);
@@ -2401,24 +2405,25 @@ namespace Microsoft.Data.SqlClient
             {
                 returnedTask = RegisterForConnectionCloseNotification(returnedTask);
 
-                Task<int>.Factory.FromAsync(BeginExecuteNonQueryAsync, EndExecuteNonQueryAsync, null).ContinueWith((t) =>
+                Task<int>.Factory.FromAsync(BeginExecuteNonQueryAsync, EndExecuteNonQueryAsync, null).ContinueWith((executeTask) =>
                 {
                     registration.Dispose();
-                    if (t.IsFaulted)
+
+                    if (executeTask.IsFaulted)
                     {
-                        Exception e = t.Exception.InnerException;
-                        _diagnosticListener.WriteCommandError(operationId, this, _transaction, e);
-                        source.SetException(e);
+                        Exception exceptionToBind = ReplaceExceptionIfOperationCancelled(executeTask.Exception.InnerException, cancellationToken);
+                        _diagnosticListener.WriteCommandError(operationId, this, _transaction, exceptionToBind);
+                        source.SetException(exceptionToBind);
                     }
                     else
                     {
-                        if (t.IsCanceled)
+                        if (executeTask.IsCanceled)
                         {
                             source.SetCanceled();
                         }
                         else
                         {
-                            source.SetResult(t.Result);
+                            source.SetResult(executeTask.Result);
                         }
                         _diagnosticListener.WriteCommandAfter(operationId, this, _transaction);
                     }
@@ -2482,7 +2487,7 @@ namespace Microsoft.Data.SqlClient
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    source.SetCanceled();
+                    source.SetException(new OperationCanceledException(cancellationToken));
                     return source.Task;
                 }
                 registration = cancellationToken.Register(s_cancelIgnoreFailure, this);
@@ -2502,7 +2507,7 @@ namespace Microsoft.Data.SqlClient
                 {
                     context = new ExecuteReaderAsyncCallContext();
                 }
-                context.Set(this, source, registration, behavior, operationId);
+                context.Set(this, source, registration, behavior, operationId, cancellationToken);
 
                 Task<SqlDataReader>.Factory.FromAsync(
                     beginMethod: s_beginExecuteReaderAsync,
@@ -2534,6 +2539,7 @@ namespace Microsoft.Data.SqlClient
             }
         }
 
+
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient/SqlCommand.xml' path='docs/members[@name="SqlCommand"]/ExecuteScalarAsync[@name="CancellationToken"]/*'/>
         public override Task<object> ExecuteScalarAsync(CancellationToken cancellationToken)
         {
@@ -2551,8 +2557,9 @@ namespace Microsoft.Data.SqlClient
                 }
                 else if (executeTask.IsFaulted)
                 {
-                    _diagnosticListener.WriteCommandError(operationId, this, _transaction, executeTask.Exception.InnerException);
-                    source.SetException(executeTask.Exception.InnerException);
+                    Exception exceptionToBind = ReplaceExceptionIfOperationCancelled(executeTask.Exception.InnerException, cancellationToken);
+                    _diagnosticListener.WriteCommandError(operationId, this, _transaction, exceptionToBind);
+                    source.SetException(exceptionToBind);
                 }
                 else
                 {
@@ -2568,9 +2575,10 @@ namespace Microsoft.Data.SqlClient
                             }
                             else if (readTask.IsFaulted)
                             {
+                                Exception exceptionToBind = ReplaceExceptionIfOperationCancelled(readTask.Exception.InnerException, cancellationToken);
                                 reader.Dispose();
-                                _diagnosticListener.WriteCommandError(operationId, this, _transaction, readTask.Exception.InnerException);
-                                source.SetException(readTask.Exception.InnerException);
+                                _diagnosticListener.WriteCommandError(operationId, this, _transaction, exceptionToBind);
+                                source.SetException(exceptionToBind);
                             }
                             else
                             {
@@ -2638,7 +2646,7 @@ namespace Microsoft.Data.SqlClient
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    source.SetCanceled();
+                    source.SetException(new OperationCanceledException(cancellationToken));
                     return source.Task;
                 }
                 registration = cancellationToken.Register(s_cancelIgnoreFailure, this);
@@ -2649,24 +2657,24 @@ namespace Microsoft.Data.SqlClient
             {
                 returnedTask = RegisterForConnectionCloseNotification(returnedTask);
 
-                Task<XmlReader>.Factory.FromAsync(BeginExecuteXmlReaderAsync, EndExecuteXmlReaderAsync, null).ContinueWith((t) =>
+                Task<XmlReader>.Factory.FromAsync(BeginExecuteXmlReaderAsync, EndExecuteXmlReaderAsync, null).ContinueWith((executeTask) =>
                 {
                     registration.Dispose();
-                    if (t.IsFaulted)
+                    if (executeTask.IsFaulted)
                     {
-                        Exception e = t.Exception.InnerException;
-                        _diagnosticListener.WriteCommandError(operationId, this, _transaction, e);
-                        source.SetException(e);
+                        Exception exceptionToBind = ReplaceExceptionIfOperationCancelled(executeTask.Exception.InnerException, cancellationToken);
+                        _diagnosticListener.WriteCommandError(operationId, this, _transaction, exceptionToBind);
+                        source.SetException(exceptionToBind);
                     }
                     else
                     {
-                        if (t.IsCanceled)
+                        if (executeTask.IsCanceled)
                         {
                             source.SetCanceled();
                         }
                         else
                         {
-                            source.SetResult(t.Result);
+                            source.SetResult(executeTask.Result);
                         }
                         _diagnosticListener.WriteCommandAfter(operationId, this, _transaction);
                     }
@@ -2679,6 +2687,16 @@ namespace Microsoft.Data.SqlClient
             }
 
             return returnedTask;
+        }
+
+        private Exception ReplaceExceptionIfOperationCancelled(Exception faultedTaskException, CancellationToken cancellationToken)
+        {
+            if (faultedTaskException is SqlException sqlEx && sqlEx.Class == TdsEnums.MIN_ERROR_CLASS && sqlEx.Number == 0 && sqlEx.State == 0 &&
+                cancellationToken.IsCancellationRequested)
+            {
+                return new OperationCanceledException(cancellationToken);
+            }
+            return faultedTaskException;
         }
 
         // If the user part is quoted, remove first and last brackets and then unquote any right square

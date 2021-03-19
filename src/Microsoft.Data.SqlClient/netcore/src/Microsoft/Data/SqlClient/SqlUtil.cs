@@ -80,9 +80,20 @@ namespace Microsoft.Data.SqlClient
             return CreateContinuationTask(task, () => onSuccess(arg1, arg2), onFailure);
         }
 
+        private static Exception ReplaceExceptionIfOperationCancelled(Exception faultedTaskException, CancellationToken cancellationToken)
+        {
+            if (faultedTaskException is SqlException sqlEx && sqlEx.Class == TdsEnums.MIN_ERROR_CLASS && sqlEx.Number == 0 && sqlEx.State == 0 &&
+                cancellationToken.IsCancellationRequested)
+            {
+                return new OperationCanceledException(cancellationToken);
+            }
+            return faultedTaskException;
+
+        }
         internal static void ContinueTask(Task task,
                 TaskCompletionSource<object> completion,
                 Action onSuccess,
+                CancellationToken cancellationToken = default,
                 Action<Exception> onFailure = null,
                 Action onCancellation = null,
                 Func<Exception, Exception> exceptionConverter = null
@@ -93,6 +104,7 @@ namespace Microsoft.Data.SqlClient
                 {
                     if (tsk.Exception != null)
                     {
+                        // 5 if the incoming task has an exception
                         Exception exc = tsk.Exception.InnerException;
                         if (exceptionConverter != null)
                         {
@@ -122,6 +134,7 @@ namespace Microsoft.Data.SqlClient
                     {
                         try
                         {
+                            // 6 if no ex or not canceled, call this
                             onSuccess();
                         }
                         catch (Exception e)

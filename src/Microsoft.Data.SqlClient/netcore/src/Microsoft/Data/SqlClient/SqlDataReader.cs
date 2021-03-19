@@ -2966,7 +2966,7 @@ namespace Microsoft.Data.SqlClient
                     if ((sequentialAccess) && (i < maximumColumn))
                     {
                         _data[fieldIndex].Clear();
-                        if (fieldIndex > i && fieldIndex>0)
+                        if (fieldIndex > i && fieldIndex > 0)
                         {
                             // if we jumped an index forward because of a hidden column see if the buffer before the
                             // current one was populated by the seek forward and clear it if it was
@@ -4256,11 +4256,12 @@ namespace Microsoft.Data.SqlClient
                 {
                     if (cancellationToken.IsCancellationRequested)
                     {
-                        source.SetCanceled();
+                        source.SetException(new OperationCanceledException(cancellationToken));
                         return source.Task;
                     }
                     registration = cancellationToken.Register(SqlCommand.s_cancelIgnoreFailure, _command);
                 }
+                Thread.Sleep(300);
 
                 Task original = Interlocked.CompareExchange(ref _currentTask, source.Task, null);
                 if (original != null)
@@ -4277,7 +4278,7 @@ namespace Microsoft.Data.SqlClient
                     return source.Task;
                 }
 
-                return InvokeAsyncCall(new HasNextResultAsyncCallContext(this, source, registration));
+                return InvokeAsyncCall(new HasNextResultAsyncCallContext(this, source, registration, cancellationToken));
             }
             finally
             {
@@ -4515,7 +4516,7 @@ namespace Microsoft.Data.SqlClient
                 if (!isContinuation)
                 {
                     // This is the first async operation which is happening - setup the _currentTask and timeout
-                    Debug.Assert(context._source==null, "context._source should not be non-null when trying to change to async");
+                    Debug.Assert(context._source == null, "context._source should not be non-null when trying to change to async");
                     source = new TaskCompletionSource<int>();
                     Task original = Interlocked.CompareExchange(ref _currentTask, source.Task, null);
                     if (original != null)
@@ -4586,8 +4587,11 @@ namespace Microsoft.Data.SqlClient
                 // If user's token is canceled, return a canceled task
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    return Task.FromCanceled<bool>(cancellationToken);
+                    return Task.FromException<bool>(new OperationCanceledException(cancellationToken));
+                    //return Task.FromCanceled<bool>(cancellationToken);
                 }
+
+                //Thread.Sleep(1000);
 
                 // Check for existing async
                 if (_currentTask != null)
@@ -4672,11 +4676,12 @@ namespace Microsoft.Data.SqlClient
                     source.SetException(ADP.ExceptionWithStackTrace(SQL.PendingBeginXXXExists()));
                     return source.Task;
                 }
-
+                //jp
                 // Check if cancellation due to close is requested (this needs to be done after setting _currentTask)
                 if (_cancelAsyncOnCloseToken.IsCancellationRequested)
                 {
-                    source.SetCanceled();
+                    source.SetException(new OperationCanceledException(cancellationToken));
+                    //source.SetCanceled();
                     _currentTask = null;
                     return source.Task;
                 }
@@ -5090,21 +5095,23 @@ namespace Microsoft.Data.SqlClient
             internal SqlDataReader _reader;
             internal TaskCompletionSource<T> _source;
             internal IDisposable _disposable;
+            internal CancellationToken _cancellationToken;
 
             protected AAsyncCallContext()
             {
             }
 
-            protected AAsyncCallContext(SqlDataReader reader, TaskCompletionSource<T> source, IDisposable disposable = null)
+            protected AAsyncCallContext(SqlDataReader reader, TaskCompletionSource<T> source, IDisposable disposable = null, CancellationToken token = default)
             {
-                Set(reader, source, disposable);
+                Set(reader, source, disposable, token);
             }
 
-            internal void Set(SqlDataReader reader, TaskCompletionSource<T> source, IDisposable disposable = null)
+            internal void Set(SqlDataReader reader, TaskCompletionSource<T> source, IDisposable disposable = null, CancellationToken token = default)
             {
                 this._reader = reader ?? throw new ArgumentNullException(nameof(reader));
                 this._source = source ?? throw new ArgumentNullException(nameof(source));
                 this._disposable = disposable;
+                _cancellationToken = token;
             }
 
             internal void Clear()
@@ -5113,6 +5120,7 @@ namespace Microsoft.Data.SqlClient
                 _reader = null;
                 IDisposable copyDisposable = _disposable;
                 _disposable = null;
+                _cancellationToken = default;
                 copyDisposable?.Dispose();
             }
 
@@ -5167,8 +5175,8 @@ namespace Microsoft.Data.SqlClient
         {
             private static readonly Func<Task, object, Task<bool>> s_execute = SqlDataReader.NextResultAsyncExecute;
 
-            public HasNextResultAsyncCallContext(SqlDataReader reader, TaskCompletionSource<bool> source, IDisposable disposable)
-                : base(reader, source, disposable)
+            public HasNextResultAsyncCallContext(SqlDataReader reader, TaskCompletionSource<bool> source, IDisposable disposable, CancellationToken token)
+                : base(reader, source, disposable, token)
             {
             }
 
@@ -5240,12 +5248,22 @@ namespace Microsoft.Data.SqlClient
             context._reader.CompleteAsyncCall<T>(task, context);
         }
 
+        private Exception ReplaceExceptionIfOperationCancelled(Exception faultedTaskException, CancellationToken cancellationToken)
+        {
+            if (faultedTaskException is SqlException sqlEx && sqlEx.Class == TdsEnums.MIN_ERROR_CLASS && sqlEx.Number == 0 && sqlEx.State == 0 &&
+                cancellationToken.IsCancellationRequested)
+            {
+                return new OperationCanceledException(cancellationToken);
+            }
+            return faultedTaskException;
+        }
+
         private Task<T> InvokeAsyncCall<T>(AAsyncCallContext<T> context)
         {
             TaskCompletionSource<T> source = context._source;
             try
             {
-                Task<T> task;
+                Task<T> task = null;
                 try
                 {
                     task = context.Execute(null, context);
@@ -5357,6 +5375,7 @@ namespace Microsoft.Data.SqlClient
         private void CompleteAsyncCall<T>(Task<T> task, AAsyncCallContext<T> context)
         {
             TaskCompletionSource<T> source = context._source;
+            CancellationToken cancellationToken = context._cancellationToken;
             context.Dispose();
 
             // If something has forced us to switch to SyncOverAsync mode while in an async task then we need to guarantee that we do the cleanup
@@ -5370,7 +5389,7 @@ namespace Microsoft.Data.SqlClient
 
             if (task.IsFaulted)
             {
-                Exception e = task.Exception.InnerException;
+                Exception e = ReplaceExceptionIfOperationCancelled(task.Exception.InnerException, cancellationToken);
                 source.TrySetException(e);
             }
             else if (task.IsCanceled)
