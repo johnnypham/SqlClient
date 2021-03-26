@@ -1,5 +1,5 @@
 # Guidelines for Building Microsoft.Data.SqlClient
-a
+
 This document provides all the necessary details to build the driver and run tests present in the repository.
 
 ## Visual Studio Pre-Requisites
